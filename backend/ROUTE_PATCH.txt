@@ -1,0 +1,3 @@
+// Register hydrants API routes
+const hydrantRoutes = require('./routes/hydrants');
+app.use('/api/hydrants', hydrantRoutes);
