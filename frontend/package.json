@@ -1,0 +1,30 @@
+{
+  "name": "hydranthub-frontend",
+  "version": "1.0.0",
+  "description": "HydrantHub web client for fire hydrant flow testing & management.",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite preview"
+  },
+  "dependencies": {
+    "@mui/material": "^5.14.0",
+    "@mui/icons-material": "^5.14.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.0",
+    "react-hook-form": "^7.48.2",
+    "axios": "^1.4.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "chart.js": "^4.4.0",
+    "jsPDF": "^2.5.1"
+  },
+  "devDependencies": {
+    "vite": "^4.5.0"
+  },
+  "browserslist": [">0.2%", "not dead", "not op_mini all"]
+}
