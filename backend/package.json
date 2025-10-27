@@ -5,11 +5,14 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/init-db.js && node server.js",
     "dev": "nodemon server.js",
     "lint": "eslint .",
+    "db:init": "node scripts/init-db.js",
     "db:setup": "psql -f sql/schema.sql",
-    "test": "jest"
+    "db:railway": "psql -f sql/schema-railway.sql",
+    "test": "jest",
+    "railway:start": "node scripts/init-db.js && node server.js"
   },
   "engines": { "node": ">=18" },
   "dependencies": {
@@ -38,12 +41,18 @@
     "water-distribution",
     "fire-protection",
     "municipal",
-    "api"
+    "api",
+    "railway",
+    "postgresql"
   ],
   "author": "Trident Systems <info@tridentsys.ca>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/rcabral85/hydrant-management.git"
+  },
+  "homepage": "https://github.com/rcabral85/hydrant-management#readme",
+  "bugs": {
+    "url": "https://github.com/rcabral85/hydrant-management/issues"
   }
 }
