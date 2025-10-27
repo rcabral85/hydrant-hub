@@ -5,23 +5,20 @@ const morgan = require('morgan');
 const path = require('path');
 require('dotenv').config();
 
-// Must create the app first
-const app = express();
+const app = express(); // Must come first
 
-// Now import routes
+// Import routes (only once)
 const adminRoutes = require('./routes/admin');
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const flowTestRoutes = require('./routes/flow-tests');
 const hydrantRoutes = require('./routes/hydrants');
 
-// Now you can mount admin route and others
+// Mount routes
 app.use('/api/admin', adminRoutes);
-// ...app.use calls for other routes, etc.
+app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/flow-tests', flowTestRoutes);
+app.use('/api/hydrants', hydrantRoutes);
 
-// (rest of your setup)
-// ...top of file
-const adminRoutes = require('./routes/admin');
-
-// ...existing route setups
-app.use('/api/admin', adminRoutes);
+// ...other middleware and server start code...
