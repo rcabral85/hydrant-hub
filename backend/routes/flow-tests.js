@@ -1,54 +1,325 @@
 const express = require('express');
-const { query } = require('../config/database');
+const { db } = require('../config/database');
+const NFPA291Calculator = require('../services/nfpa291Calculator');
+const Joi = require('joi');
 const router = express.Router();
 
-// Create flow test with NFPA 291 calc to 20 psi
+// Initialize NFPA calculator
+const calculator = new NFPA291Calculator();
+
+// Validation schemas
+const outletSchema = Joi.object({
+  size: Joi.number().positive().required(),
+  pitotPressure: Joi.number().positive().required(),
+  coefficient: Joi.number().min(0.7).max(1.0).optional()
+});
+
+const flowTestSchema = Joi.object({
+  hydrant_id: Joi.string().uuid().required(),
+  test_date: Joi.date().default(() => new Date()),
+  test_time: Joi.string().pattern(/^\d{2}:\d{2}$/).optional(),
+  tested_by_user_id: Joi.string().uuid().optional(),
+  weather_conditions: Joi.string().max(100).optional(),
+  temperature_f: Joi.number().integer().min(-20).max(120).optional(),
+  
+  static_pressure_psi: Joi.number().positive().required(),
+  residual_pressure_psi: Joi.number().positive().required(),
+  outlets: Joi.array().items(outletSchema).min(1).required(),
+  
+  test_method: Joi.string().valid('pitot_gauge', 'flow_meter', 'weir').default('pitot_gauge'),
+  notes: Joi.string().max(1000).optional()
+});
+
+// POST /api/flow-tests - Create new flow test with NFPA 291 calculations
 router.post('/', async (req, res, next) => {
   try {
-    const { hydrant_id, static_psi, residual_psi, total_flow_gpm } = req.body;
-    if (!hydrant_id || !static_psi || !residual_psi || !total_flow_gpm) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Validate input data
+    const { error, value } = flowTestSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
+      });
     }
 
-    // NFPA 291: Qf = Qr * ((Pf - 20) / (Pf - Pr))^0.54
-    const Pf = Number(static_psi);
-    const Pr = Number(residual_psi);
-    const Qr = Number(total_flow_gpm);
-
-    if (Pf <= 20 || Pf <= Pr) {
-      return res.status(400).json({ error: 'Invalid pressures: require static > residual and static > 20' });
+    const testData = value;
+    
+    // Verify hydrant exists
+    const hydrantCheck = await db.query(
+      'SELECT id, hydrant_number, organization_id FROM hydrants WHERE id = $1 AND status = $2',
+      [testData.hydrant_id, 'active']
+    );
+    
+    if (hydrantCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Hydrant not found or inactive' });
     }
 
-    const Qf = Qr * Math.pow(((Pf - 20) / (Pf - Pr)), 0.54);
+    // Perform NFPA 291 calculations
+    const calculationResults = calculator.performFlowTest({
+      staticPressure: testData.static_pressure_psi,
+      residualPressure: testData.residual_pressure_psi,
+      outlets: testData.outlets
+    });
 
-    const result = await query(
-      `INSERT INTO public."flow_tests" (hydrant_id, static_psi, residual_psi, total_flow_gpm, calc_at_20psi_gpm)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, hydrant_id, static_psi, residual_psi, total_flow_gpm, calc_at_20psi_gpm, created_at`,
-      [hydrant_id, Pf, Pr, Qr, Qf]
+    // Generate test number
+    const testNumber = `FT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+    // Insert flow test record
+    const insertQuery = `
+      INSERT INTO flow_tests (
+        hydrant_id, test_number, test_date, test_time, tested_by_user_id,
+        weather_conditions, temperature_f, static_pressure_psi, residual_pressure_psi,
+        outlets_data, total_flow_gpm, available_fire_flow_gpm, nfpa_class,
+        test_method, notes, is_valid, validation_notes
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+      ) RETURNING *`;
+
+    const insertValues = [
+      testData.hydrant_id,
+      testNumber,
+      testData.test_date,
+      testData.test_time,
+      testData.tested_by_user_id,
+      testData.weather_conditions,
+      testData.temperature_f,
+      testData.static_pressure_psi,
+      testData.residual_pressure_psi,
+      JSON.stringify(calculationResults.results.outletFlows),
+      calculationResults.results.totalFlow,
+      calculationResults.results.availableFireFlow,
+      calculationResults.results.classification.class,
+      testData.test_method,
+      testData.notes,
+      calculationResults.validation.isValid,
+      JSON.stringify({
+        warnings: calculationResults.validation.warnings,
+        errors: calculationResults.validation.errors,
+        qualityScore: calculationResults.validation.qualityScore
+      })
+    ];
+
+    const result = await db.query(insertQuery, insertValues);
+    const flowTest = result.rows[0];
+
+    // Update hydrant's last tested date and NFPA class
+    await db.query(
+      'UPDATE hydrants SET last_tested = $1, nfpa_class = $2, available_flow_gpm = $3, updated_at = NOW() WHERE id = $4',
+      [testData.test_date, calculationResults.results.classification.class, calculationResults.results.availableFireFlow, testData.hydrant_id]
     );
 
-    res.status(201).json({ flow_test: result.rows[0] });
-  } catch (e) {
-    next(e);
+    // Return complete results
+    res.status(201).json({
+      success: true,
+      flowTest: {
+        ...flowTest,
+        outlets_data: JSON.parse(flowTest.outlets_data),
+        validation_notes: JSON.parse(flowTest.validation_notes)
+      },
+      calculations: calculationResults,
+      hydrant: hydrantCheck.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Flow test creation error:', error);
+    next(error);
   }
 });
 
-// List flow tests per hydrant
+// GET /api/flow-tests - List flow tests with filtering
 router.get('/', async (req, res, next) => {
   try {
-    const { hydrant_id } = req.query;
-    if (!hydrant_id) return res.status(400).json({ error: 'hydrant_id is required' });
-    const result = await query(
-      `SELECT id, hydrant_id, static_psi, residual_psi, total_flow_gpm, calc_at_20psi_gpm, created_at
-       FROM public."flow_tests"
-       WHERE hydrant_id = $1
-       ORDER BY created_at DESC`,
-      [hydrant_id]
+    const {
+      hydrant_id,
+      organization_id,
+      start_date,
+      end_date,
+      nfpa_class,
+      tested_by,
+      limit = 50,
+      offset = 0
+    } = req.query;
+
+    let query = `
+      SELECT 
+        ft.*,
+        h.hydrant_number,
+        h.address as hydrant_address,
+        u.first_name || ' ' || u.last_name as tested_by_name
+      FROM flow_tests ft
+      LEFT JOIN hydrants h ON ft.hydrant_id = h.id
+      LEFT JOIN users u ON ft.tested_by_user_id = u.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 0;
+
+    if (hydrant_id) {
+      params.push(hydrant_id);
+      query += ` AND ft.hydrant_id = $${++paramCount}`;
+    }
+
+    if (organization_id) {
+      params.push(organization_id);
+      query += ` AND h.organization_id = $${++paramCount}`;
+    }
+
+    if (start_date) {
+      params.push(start_date);
+      query += ` AND ft.test_date >= $${++paramCount}`;
+    }
+
+    if (end_date) {
+      params.push(end_date);
+      query += ` AND ft.test_date <= $${++paramCount}`;
+    }
+
+    if (nfpa_class) {
+      params.push(nfpa_class);
+      query += ` AND ft.nfpa_class = $${++paramCount}`;
+    }
+
+    if (tested_by) {
+      params.push(tested_by);
+      query += ` AND ft.tested_by_user_id = $${++paramCount}`;
+    }
+
+    query += ` ORDER BY ft.test_date DESC, ft.created_at DESC`;
+    
+    params.push(parseInt(limit));
+    query += ` LIMIT $${++paramCount}`;
+    
+    params.push(parseInt(offset));
+    query += ` OFFSET $${++paramCount}`;
+
+    const result = await db.query(query, params);
+    
+    // Parse JSON fields for response
+    const flowTests = result.rows.map(row => ({
+      ...row,
+      outlets_data: JSON.parse(row.outlets_data || '[]'),
+      validation_notes: JSON.parse(row.validation_notes || '{}')
+    }));
+
+    res.json({
+      success: true,
+      flowTests,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        count: result.rows.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Flow tests retrieval error:', error);
+    next(error);
+  }
+});
+
+// GET /api/flow-tests/:id - Get specific flow test
+router.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      SELECT 
+        ft.*,
+        h.hydrant_number,
+        h.address as hydrant_address,
+        h.location,
+        u.first_name || ' ' || u.last_name as tested_by_name,
+        o.name as organization_name
+      FROM flow_tests ft
+      LEFT JOIN hydrants h ON ft.hydrant_id = h.id
+      LEFT JOIN users u ON ft.tested_by_user_id = u.id
+      LEFT JOIN organizations o ON h.organization_id = o.id
+      WHERE ft.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Flow test not found' });
+    }
+
+    const flowTest = result.rows[0];
+    
+    res.json({
+      success: true,
+      flowTest: {
+        ...flowTest,
+        outlets_data: JSON.parse(flowTest.outlets_data || '[]'),
+        validation_notes: JSON.parse(flowTest.validation_notes || '{}')
+      }
+    });
+
+  } catch (error) {
+    console.error('Flow test retrieval error:', error);
+    next(error);
+  }
+});
+
+// POST /api/flow-tests/:id/approve - Approve flow test
+router.post('/:id/approve', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reviewed_by_user_id, notes } = req.body;
+
+    if (!reviewed_by_user_id) {
+      return res.status(400).json({ error: 'Reviewer user ID is required' });
+    }
+
+    const result = await db.query(
+      `UPDATE flow_tests 
+       SET approved = true, reviewed_by_user_id = $1, reviewed_at = NOW(), compliance_notes = $2, updated_at = NOW()
+       WHERE id = $3 
+       RETURNING *`,
+      [reviewed_by_user_id, notes, id]
     );
-    res.json({ flow_tests: result.rows });
-  } catch (e) {
-    next(e);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Flow test not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Flow test approved',
+      flowTest: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Flow test approval error:', error);
+    next(error);
+  }
+});
+
+// GET /api/flow-tests/calculator/test - Test NFPA calculator
+router.post('/calculator/test', async (req, res, next) => {
+  try {
+    const { staticPressure, residualPressure, outlets } = req.body;
+    
+    if (!staticPressure || !residualPressure || !outlets) {
+      return res.status(400).json({ 
+        error: 'staticPressure, residualPressure, and outlets are required' 
+      });
+    }
+
+    const results = calculator.performFlowTest({
+      staticPressure,
+      residualPressure,
+      outlets
+    });
+
+    res.json({
+      success: true,
+      results
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
