@@ -1,67 +1,66 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+
+const apiUrl = import.meta.env.VITE_API_URL || 'https://hydrant-management-production.up.railway.app/api'
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({
-    totalHydrants: 0,
-    activeHydrants: 0,
-    lastTest: null
-  })
-  
-  const apiUrl = import.meta.env.VITE_API_URL || 'https://hydrant-management-production.up.railway.app/api'
-  
+  const [stats, setStats] = useState({ totalHydrants: 0, activeHydrants: 0, lastTest: null })
+  const [list, setList] = useState([])
+
   useEffect(() => {
-    // Test API connection
-    fetch(`${apiUrl}/health`)
-      .then(res => res.json())
-      .then(data => console.log('API Health:', data))
-      .catch(err => console.error('API Error:', err))
+    const load = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/hydrants`)
+        const data = await res.json()
+        const hydrants = data.hydrants || []
+        setList(hydrants)
+        setStats({
+          totalHydrants: hydrants.length,
+          activeHydrants: hydrants.filter(h => (h.status || '').toLowerCase() === 'active').length,
+          lastTest: null
+        })
+      } catch (e) {
+        console.error('Failed to load hydrants', e)
+      }
+    }
+    load()
   }, [])
-  
+
   return (
     <div style={{ padding: '20px', color: 'white' }}>
       <h2>📊 Dashboard</h2>
-      
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
         <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
           <h3>🚰 Total Hydrants</h3>
           <p style={{ fontSize: '2em', margin: '10px 0' }}>{stats.totalHydrants}</p>
         </div>
-        
+
         <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
           <h3>✅ Active Hydrants</h3>
           <p style={{ fontSize: '2em', margin: '10px 0' }}>{stats.activeHydrants}</p>
         </div>
-        
+
         <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
           <h3>🧪 Last Test</h3>
           <p>{stats.lastTest || 'No tests recorded'}</p>
         </div>
       </div>
-      
+
       <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px', margin: '20px 0' }}>
-        <h3>🎯 Quick Actions</h3>
-        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', background: '#4CAF50', color: 'white', cursor: 'pointer' }}>
-            ➕ Add Hydrant
-          </button>
-          <button style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', background: '#2196F3', color: 'white', cursor: 'pointer' }}>
-            🧪 Flow Test
-          </button>
-          <button style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', background: '#FF9800', color: 'white', cursor: 'pointer' }}>
-            📍 View Map
-          </button>
-          <button style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', background: '#9C27B0', color: 'white', cursor: 'pointer' }}>
-            📊 Reports
-          </button>
-        </div>
-      </div>
-      
-      <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px', textAlign: 'left' }}>
-        <h3>🏢 Organization: Town of Milton</h3>
-        <p>👤 <strong>User:</strong> Richard Cabral (Water Distribution Operator)</p>
-        <p>🔧 <strong>Role:</strong> Administrator</p>
-        <p>📧 <strong>Email:</strong> demo@milton.ca</p>
-        <p>🌐 <strong>API Status:</strong> <span style={{ color: '#4CAF50' }}>Connected</span></p>
+        <h3>🧾 Hydrants</h3>
+        {list.length === 0 ? (
+          <p>No hydrants found.</p>
+        ) : (
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            {list.map(h => (
+              <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, padding: 10, marginBottom: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 8 }}>
+                <div><strong>#{h.hydrant_number}</strong></div>
+                <div>{h.address}</div>
+                <div style={{ textTransform: 'capitalize' }}>{h.status || 'unknown'}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
