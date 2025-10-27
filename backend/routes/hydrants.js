@@ -2,6 +2,21 @@ const express = require('express');
 const { query } = require('../config/database');
 const router = express.Router();
 
+// List hydrants
+router.get('/', async (req, res, next) => {
+  try {
+    console.log('HIT /api/hydrants GET');
+    const result = await query(
+      `SELECT id, organization_id, hydrant_number, lat, lon, address, nfpa_class, available_flow_gpm, status
+       FROM public."hydrants"
+       ORDER BY id ASC`
+    );
+    res.json({ hydrants: result.rows });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Create hydrant
 router.post('/', async (req, res, next) => {
   try {
