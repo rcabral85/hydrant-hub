@@ -23,12 +23,24 @@ const hydrantSchema = Joi.object({
   valve_to_hydrant_feet: Joi.number().integer().min(0).optional(),
   status: Joi.string().valid('active', 'inactive', 'removed', 'out_of_service').default('active'),
   notes: Joi.string().max(1000).optional(),
-  // GPS coordinates
-  latitude: Joi.number().min(-90).max(90).optional(),
-  longitude: Joi.number().min(-180).max(180).optional()
+  // GPS coordinates (Railway compatible)
+  lat: Joi.number().min(-90).max(90).optional(),
+  lon: Joi.number().min(-180).max(180).optional()
 });
 
 const hydrantUpdateSchema = hydrantSchema.fork(['organization_id', 'hydrant_number'], (schema) => schema.optional());
+
+// Helper function to calculate distance between two points (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in kilometers
+}
 
 // GET /api/hydrants - List hydrants with filtering and spatial queries
 router.get('/', async (req, res, next) => {
@@ -39,7 +51,7 @@ router.get('/', async (req, res, next) => {
       nfpa_class,
       search,
       near_lat,
-      near_lng,
+      near_lon,
       radius_km = 10,
       limit = 100,
       offset = 0
@@ -48,8 +60,6 @@ router.get('/', async (req, res, next) => {
     let query = `
       SELECT 
         h.*,
-        ST_X(h.location) as longitude,
-        ST_Y(h.location) as latitude,
         o.name as organization_name,
         (
           SELECT COUNT(*) FROM flow_tests ft WHERE ft.hydrant_id = h.id
@@ -85,14 +95,18 @@ router.get('/', async (req, res, next) => {
       query += ` AND (h.hydrant_number ILIKE $${++paramCount} OR h.address ILIKE $${paramCount})`;
     }
 
-    // Spatial proximity search
-    if (near_lat && near_lng) {
-      params.push(parseFloat(near_lng), parseFloat(near_lat), parseFloat(radius_km) * 1000);
-      query += ` AND ST_DWithin(
-        h.location, 
-        ST_SetSRID(ST_MakePoint($${++paramCount}, $${++paramCount}), 4326)::geography,
-        $${++paramCount}
-      )`;
+    // Spatial proximity search using bounding box (Railway compatible)
+    if (near_lat && near_lon) {
+      const lat = parseFloat(near_lat);
+      const lon = parseFloat(near_lon);
+      const radiusKm = parseFloat(radius_km);
+      
+      // Rough bounding box calculation (1 degree ≈ 111 km)
+      const latDelta = radiusKm / 111.0;
+      const lonDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180));
+      
+      params.push(lat - latDelta, lat + latDelta, lon - lonDelta, lon + lonDelta);
+      query += ` AND h.lat BETWEEN $${++paramCount} AND $${++paramCount} AND h.lon BETWEEN $${++paramCount} AND $${++paramCount}`;
     }
 
     query += ` ORDER BY h.hydrant_number ASC`;
@@ -105,11 +119,27 @@ router.get('/', async (req, res, next) => {
 
     const result = await db.query(query, params);
     
-    // Parse JSON fields
-    const hydrants = result.rows.map(row => ({
+    // Parse JSON fields and filter by precise distance if needed
+    let hydrants = result.rows.map(row => ({
       ...row,
       outlet_sizes: typeof row.outlet_sizes === 'string' ? JSON.parse(row.outlet_sizes) : row.outlet_sizes
     }));
+
+    // Apply precise distance filtering if location search was requested
+    if (near_lat && near_lon) {
+      const searchLat = parseFloat(near_lat);
+      const searchLon = parseFloat(near_lon);
+      const maxDistanceKm = parseFloat(radius_km);
+      
+      hydrants = hydrants
+        .filter(h => {
+          if (!h.lat || !h.lon) return false;
+          const distance = calculateDistance(searchLat, searchLon, h.lat, h.lon);
+          h.distance_km = Math.round(distance * 100) / 100; // Round to 2 decimal places
+          return distance <= maxDistanceKm;
+        })
+        .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0));
+    }
 
     res.json({
       success: true,
@@ -117,7 +147,7 @@ router.get('/', async (req, res, next) => {
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        count: result.rows.length
+        count: hydrants.length
       }
     });
 
@@ -135,8 +165,6 @@ router.get('/:id', async (req, res, next) => {
     const result = await db.query(`
       SELECT 
         h.*,
-        ST_X(h.location) as longitude,
-        ST_Y(h.location) as latitude,
         o.name as organization_name,
         o.type as organization_type,
         (
@@ -215,27 +243,21 @@ router.post('/', async (req, res, next) => {
     // Generate QR code
     const qrCode = `HH-${hydrantData.hydrant_number}-${Date.now().toString(36)}`;
 
-    // Build location point if coordinates provided
-    let locationValue = null;
-    let locationParam = null;
-    if (hydrantData.latitude && hydrantData.longitude) {
-      locationParam = `ST_SetSRID(ST_MakePoint($${13}, $${14}), 4326)`;
-      locationValue = [hydrantData.longitude, hydrantData.latitude];
-    }
-
     const insertQuery = `
       INSERT INTO hydrants (
-        organization_id, hydrant_number, location, address, manufacturer, model, 
+        organization_id, hydrant_number, lat, lon, address, manufacturer, model, 
         year_installed, size_inches, outlet_count, outlet_sizes, steamer_size,
         elevation_feet, water_main_size_inches, valve_to_hydrant_feet, 
         status, notes, qr_code
       ) VALUES (
-        $1, $2, ${locationParam || 'NULL'}, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
       ) RETURNING *`;
 
     const insertValues = [
       hydrantData.organization_id,
       hydrantData.hydrant_number,
+      hydrantData.lat,
+      hydrantData.lon,
       hydrantData.address,
       hydrantData.manufacturer,
       hydrantData.model,
@@ -252,10 +274,6 @@ router.post('/', async (req, res, next) => {
       qrCode
     ];
 
-    if (locationValue) {
-      insertValues.push(...locationValue);
-    }
-
     const result = await db.query(insertQuery, insertValues);
     const hydrant = result.rows[0];
 
@@ -263,9 +281,7 @@ router.post('/', async (req, res, next) => {
       success: true,
       hydrant: {
         ...hydrant,
-        outlet_sizes: JSON.parse(hydrant.outlet_sizes || '[]'),
-        longitude: hydrantData.longitude,
-        latitude: hydrantData.latitude
+        outlet_sizes: JSON.parse(hydrant.outlet_sizes || '[]')
       },
       organization: orgCheck.rows[0]
     });
@@ -308,16 +324,10 @@ router.put('/:id', async (req, res, next) => {
     let paramCount = 1;
 
     for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined && key !== 'latitude' && key !== 'longitude') {
+      if (value !== undefined) {
         updateFields.push(`${key} = $${++paramCount}`);
         updateValues.push(key === 'outlet_sizes' ? JSON.stringify(value) : value);
       }
-    }
-
-    // Handle location update if coordinates provided
-    if (updates.latitude && updates.longitude) {
-      updateFields.push(`location = ST_SetSRID(ST_MakePoint($${++paramCount}, $${++paramCount}), 4326)`);
-      updateValues.push(updates.longitude, updates.latitude);
     }
 
     if (updateFields.length === 0) {
@@ -457,7 +467,7 @@ router.get('/:id/history', async (req, res, next) => {
   }
 });
 
-// GET /api/hydrants/map/geojson - Get hydrants as GeoJSON for mapping
+// GET /api/hydrants/map/geojson - Get hydrants as GeoJSON for mapping (Railway compatible)
 router.get('/map/geojson', async (req, res, next) => {
   try {
     const { organization_id, status = 'active', nfpa_class } = req.query;
@@ -470,9 +480,10 @@ router.get('/map/geojson', async (req, res, next) => {
         h.nfpa_class,
         h.available_flow_gpm,
         h.status,
-        ST_AsGeoJSON(h.location) as geometry
+        h.lat,
+        h.lon
       FROM hydrants h
-      WHERE h.location IS NOT NULL
+      WHERE h.lat IS NOT NULL AND h.lon IS NOT NULL
     `;
     
     const params = [];
@@ -499,7 +510,10 @@ router.get('/map/geojson', async (req, res, next) => {
       type: 'FeatureCollection',
       features: result.rows.map(row => ({
         type: 'Feature',
-        geometry: JSON.parse(row.geometry),
+        geometry: {
+          type: 'Point',
+          coordinates: [row.lon, row.lat] // GeoJSON uses [longitude, latitude]
+        },
         properties: {
           id: row.id,
           hydrant_number: row.hydrant_number,
