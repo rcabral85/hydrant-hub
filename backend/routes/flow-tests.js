@@ -7,6 +7,15 @@ const router = express.Router();
 // Initialize NFPA calculator
 const calculator = new NFPA291Calculator();
 
+// Helper to safely handle JSON/JSONB columns
+function ensureParsedJSON(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return fallback; }
+  }
+  return value;
+}
+
 // Validation schemas
 const outletSchema = Joi.object({
   size: Joi.number().positive().required(),
@@ -113,8 +122,8 @@ router.post('/', async (req, res, next) => {
       success: true,
       flowTest: {
         ...flowTest,
-        outlets_data: JSON.parse(flowTest.outlets_data),
-        validation_notes: JSON.parse(flowTest.validation_notes)
+        outlets_data: ensureParsedJSON(flowTest.outlets_data, []),
+        validation_notes: ensureParsedJSON(flowTest.validation_notes, {})
       },
       calculations: calculationResults,
       hydrant: hydrantCheck.rows[0]
@@ -142,9 +151,9 @@ router.get('/', async (req, res, next) => {
 
     let query = `
       SELECT 
-        ft.*,
-        h.hydrant_number,
-        h.address as hydrant_address,
+        ft.*, 
+        h.hydrant_number, 
+        h.address as hydrant_address, 
         u.first_name || ' ' || u.last_name as tested_by_name
       FROM flow_tests ft
       LEFT JOIN hydrants h ON ft.hydrant_id = h.id
@@ -198,8 +207,8 @@ router.get('/', async (req, res, next) => {
     // Parse JSON fields for response
     const flowTests = result.rows.map(row => ({
       ...row,
-      outlets_data: JSON.parse(row.outlets_data || '[]'),
-      validation_notes: JSON.parse(row.validation_notes || '{}')
+      outlets_data: ensureParsedJSON(row.outlets_data, []),
+      validation_notes: ensureParsedJSON(row.validation_notes, {})
     }));
 
     res.json({
@@ -225,10 +234,9 @@ router.get('/:id', async (req, res, next) => {
     
     const result = await db.query(`
       SELECT 
-        ft.*,
-        h.hydrant_number,
+        ft.*, 
+        h.hydrant_number, 
         h.address as hydrant_address,
-        h.location,
         u.first_name || ' ' || u.last_name as tested_by_name,
         o.name as organization_name
       FROM flow_tests ft
@@ -248,8 +256,8 @@ router.get('/:id', async (req, res, next) => {
       success: true,
       flowTest: {
         ...flowTest,
-        outlets_data: JSON.parse(flowTest.outlets_data || '[]'),
-        validation_notes: JSON.parse(flowTest.validation_notes || '{}')
+        outlets_data: ensureParsedJSON(flowTest.outlets_data, []),
+        validation_notes: ensureParsedJSON(flowTest.validation_notes, {})
       }
     });
 
@@ -293,7 +301,7 @@ router.post('/:id/approve', async (req, res, next) => {
   }
 });
 
-// GET /api/flow-tests/calculator/test - Test NFPA calculator
+// Calculator test
 router.post('/calculator/test', async (req, res, next) => {
   try {
     const { staticPressure, residualPressure, outlets } = req.body;
