@@ -1,0 +1,63 @@
+/*
+  # Security Headers
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-XSS-Protection: 1; mode=block
+  
+  # Caching Headers
+  Cache-Control: public, max-age=31536000, immutable
+  
+  # Compression
+  Content-Encoding: gzip
+
+# HTML files - no caching for dynamic content
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+  
+# JavaScript and CSS files - long cache
+/assets/*.js
+  Cache-Control: public, max-age=31536000, immutable
+  
+/assets/*.css
+  Cache-Control: public, max-age=31536000, immutable
+  
+# Images - medium cache
+/assets/*.png
+  Cache-Control: public, max-age=2592000
+  
+/assets/*.jpg
+  Cache-Control: public, max-age=2592000
+  
+/assets/*.svg
+  Cache-Control: public, max-age=2592000
+  
+/assets/*.webp
+  Cache-Control: public, max-age=2592000
+
+# Fonts - long cache
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  
+# API routes - no cache
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  
+# Service Worker
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Manifest
+/manifest.json
+  Cache-Control: public, max-age=86400
+  
+# Preload critical resources
+/
+  Link: </assets/main.js>; rel=preload; as=script
+  Link: </assets/main.css>; rel=preload; as=style
+  
+# CORS for API requests  
+/api/*
+  Access-Control-Allow-Origin: https://tridentsys.ca
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
