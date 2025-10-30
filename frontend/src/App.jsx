@@ -10,6 +10,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import HydrantMap from './components/HydrantMap';
 import FlowTestForm from './components/FlowTestForm';
+import TestPage from './pages/TestPage';
 import './App.css';
 
 // Create Material-UI theme
@@ -134,6 +135,9 @@ function AppRoutes() {
         }
       />
       
+      {/* Test Route - Public for easy access */}
+      <Route path="/test" element={<TestPage />} />
+      
       {/* Protected Routes */}
       <Route
         path="/dashboard"
@@ -172,7 +176,7 @@ function AppRoutes() {
       />
       
       {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/test" replace />} />
       
       {/* Catch-all route */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
