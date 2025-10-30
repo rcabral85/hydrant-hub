@@ -1,31 +1,27 @@
-import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { listHydrants, listTests } from '../services/data';
 
-function Dashboard() {
+export default function Dashboard(){
+  const [hydrants, setHydrants] = useState([]);
+  const [tests, setTests] = useState([]);
+  useEffect(()=>{ (async()=>{ setHydrants(await listHydrants()); setTests(await listTests()); })(); },[]);
   return (
-    <Box sx={{ p: 4, width: '100%', maxWidth: 900, margin: '0 auto', bgcolor: '#fff', borderRadius: 4, mt: 4, boxShadow: 2 }}>
-      <Typography variant="h4" color="primary" gutterBottom>
-        HydrantHub Dashboard
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        Welcome to HydrantHub! Manage hydrants, conduct flow tests, review compliance, and generate PDF reports for municipalities, fire departments, and contractors.
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <Button component={Link} to="/hydrants" variant="contained" color="primary">
-          Hydrant Inventory
-        </Button>
-        <Button component={Link} to="/flow-tests" variant="contained" color="secondary">
-          Flow Testing
-        </Button>
-      </Box>
-      <Box>
-        <Typography variant="subtitle1" color="text.secondary">
-          Trident Systems &mdash; Ontario Water Operations
-        </Typography>
-      </Box>
-    </Box>
+    <div style={{padding: 16}}>
+      <h2>Dashboard</h2>
+      <div style={{display:'flex', gap: 24}}>
+        <div>
+          <h3>Hydrants</h3>
+          <ul>
+            {hydrants.map(h=> <li key={h.id}>{h.asset_id} — {h.street}, {h.city}</li>)}
+          </ul>
+        </div>
+        <div>
+          <h3>Recent Flow Tests</h3>
+          <ul>
+            {tests.map(t=> <li key={t.id}>Hydrant #{t.hydrant_id} — {Math.round(t.flow_at_20psi_gpm)} GPM ({t.nfpa_class})</li>)}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 }
-
-export default Dashboard;
