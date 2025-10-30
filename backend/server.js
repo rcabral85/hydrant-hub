@@ -84,6 +84,36 @@ app.get('/api', (req, res) => {
   });
 });
 
+// Database debug endpoint
+app.get('/api/debug/schema', async (req, res) => {
+  try {
+    // Check table structure
+    const flowTestCols = await db.query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns 
+      WHERE table_name = 'flow_tests' 
+      ORDER BY ordinal_position
+    `);
+    
+    const hydrantCols = await db.query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns 
+      WHERE table_name = 'hydrants' 
+      ORDER BY ordinal_position
+    `);
+    
+    res.json({
+      success: true,
+      tables: {
+        flow_tests: flowTestCols.rows,
+        hydrants: hydrantCols.rows
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -93,6 +123,7 @@ app.use('*', (req, res) => {
       'GET /',
       'GET /api',
       'GET /api/health',
+      'GET /api/debug/schema',
       'POST /api/auth/login',
       'GET /api/hydrants',
       'GET /api/flow-tests'
@@ -150,6 +181,15 @@ app.listen(PORT, async () => {
     if (health.status === 'healthy') {
       console.log('✅ Database connected successfully');
       console.log(`📅 PostgreSQL Version: ${health.version}`);
+      
+      // Run migration check
+      console.log('🔍 Checking database schema...');
+      try {
+        const migration = require('./scripts/railway-migration');
+        await migration();
+      } catch (migrationError) {
+        console.warn('⚠️ Migration check failed:', migrationError.message);
+      }
     }
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
@@ -158,6 +198,7 @@ app.listen(PORT, async () => {
   
   console.log('📚 API Documentation available at /api');
   console.log('🔍 Health check available at /api/health');
+  console.log('🛠️ Schema debug available at /api/debug/schema');
 });
 
 // Handle uncaught exceptions
