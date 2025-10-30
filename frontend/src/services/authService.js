@@ -30,11 +30,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('hydrantHub_token');
       localStorage.removeItem('hydrantHub_user');
-      
-      // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -50,20 +47,17 @@ class AuthService {
     this.api = api;
   }
 
-  // Login user
-  async login(username, password) {
+  // Login user (identifier = username or email)
+  async login(identifier, password) {
     try {
       const response = await api.post('/auth/login', {
-        username,
+        identifier,
         password,
       });
 
       const { token, user } = response.data;
-      
-      // Store token and user data
       localStorage.setItem(this.TOKEN_KEY, token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-      
       return { success: true, user, token };
     } catch (error) {
       const message = error.response?.data?.error || 'Login failed';
@@ -71,16 +65,12 @@ class AuthService {
     }
   }
 
-  // Register new user
   async register(userData) {
     try {
       const response = await api.post('/auth/register', userData);
       const { token, user } = response.data;
-      
-      // Store token and user data
       localStorage.setItem(this.TOKEN_KEY, token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-      
       return { success: true, user, token };
     } catch (error) {
       const message = error.response?.data?.error || 'Registration failed';
@@ -88,13 +78,11 @@ class AuthService {
     }
   }
 
-  // Logout user
   logout() {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
   }
 
-  // Get current user from localStorage
   getCurrentUser() {
     try {
       const userStr = localStorage.getItem(this.USER_KEY);
@@ -105,27 +93,22 @@ class AuthService {
     }
   }
 
-  // Get stored token
   getToken() {
     return localStorage.getItem(this.TOKEN_KEY);
   }
 
-  // Check if user is authenticated
   isAuthenticated() {
     const token = this.getToken();
     const user = this.getCurrentUser();
     return !!(token && user);
   }
 
-  // Refresh token
   async refreshToken() {
     try {
       const response = await api.post('/auth/refresh');
       const { token, user } = response.data;
-      
       localStorage.setItem(this.TOKEN_KEY, token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-      
       return { success: true, user, token };
     } catch (error) {
       this.logout();
@@ -133,15 +116,11 @@ class AuthService {
     }
   }
 
-  // Get user profile
   async getProfile() {
     try {
       const response = await api.get('/auth/me');
       const { user } = response.data;
-      
-      // Update stored user data
       localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-      
       return { success: true, user };
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to get profile';
@@ -149,17 +128,13 @@ class AuthService {
     }
   }
 
-  // Update user profile
   async updateProfile(profileData) {
     try {
       const response = await api.put('/auth/profile', profileData);
       const { user } = response.data;
-      
-      // Update stored user data
       const currentUser = this.getCurrentUser();
       const updatedUser = { ...currentUser, ...user };
       localStorage.setItem(this.USER_KEY, JSON.stringify(updatedUser));
-      
       return { success: true, user: updatedUser };
     } catch (error) {
       const message = error.response?.data?.error || 'Profile update failed';
@@ -167,25 +142,21 @@ class AuthService {
     }
   }
 
-  // Check user role
   hasRole(role) {
     const user = this.getCurrentUser();
     return user?.role === role;
   }
 
-  // Check if user is admin
   isAdmin() {
     return this.hasRole('admin');
   }
 
-  // Check if user is operator or higher
   canOperate() {
     const user = this.getCurrentUser();
     const operatorRoles = ['admin', 'supervisor', 'operator'];
     return user && operatorRoles.includes(user.role);
   }
 
-  // Get organization info
   getOrganization() {
     const user = this.getCurrentUser();
     return user ? {
@@ -196,9 +167,6 @@ class AuthService {
   }
 }
 
-// Export singleton instance
 const authService = new AuthService();
 export default authService;
-
-// Also export the configured axios instance for other services
 export { api };
