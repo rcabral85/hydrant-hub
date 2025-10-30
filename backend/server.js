@@ -42,13 +42,6 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const flowTestRoutes = require('./routes/flow-tests');
 const hydrantRoutes = require('./routes/hydrants');
-// TEMP reset route (to be removed after use)
-let adminResetRoutes;
-try {
-  adminResetRoutes = require('./routes/admin-reset');
-} catch (e) {
-  adminResetRoutes = null;
-}
 
 // API Routes
 app.use('/api/admin', adminRoutes);
@@ -56,10 +49,6 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/hydrants', hydrantRoutes);
-// Expose temporary reset route under /api/admin
-if (adminResetRoutes) {
-  app.use('/api/admin', adminResetRoutes);
-}
 
 // Root endpoint
 app.get('/', (req, res) => {
