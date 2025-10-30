@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Box, CircularProgress } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
@@ -7,11 +7,12 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navigation from './components/Navigation';
+import Footer from './components/Footer';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import HydrantMap from './components/HydrantMap';
 import FlowTestForm from './components/FlowTestForm';
-import TestPage from './pages/TestPage';
+// Removed TestPage import for production
 import './App.css';
 
 const theme = createTheme({
@@ -21,37 +22,82 @@ const theme = createTheme({
     background: { default: '#f5f7fa', paper: '#ffffff' },
     text: { primary: '#2c3e50', secondary: '#5a6c7d' },
   },
-  typography: { fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif', h1:{fontWeight:700}, h2:{fontWeight:600}, h3:{fontWeight:600}, h4:{fontWeight:600}, h5:{fontWeight:600}, h6:{fontWeight:600} },
+  typography: { 
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif', 
+    h1: { fontWeight: 700 }, 
+    h2: { fontWeight: 600 }, 
+    h3: { fontWeight: 600 }, 
+    h4: { fontWeight: 600 }, 
+    h5: { fontWeight: 600 }, 
+    h6: { fontWeight: 600 } 
+  },
   shape: { borderRadius: 8 },
 });
 
+// SEO Title Updates
+function TitleUpdater() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    const routeTitles = {
+      '/login': 'Login',
+      '/dashboard': 'Dashboard',
+      '/map': 'Hydrant Map',
+      '/flow-test': 'Flow Test Form',
+      '/reports': 'Reports'
+    };
+    
+    const currentTitle = routeTitles[location.pathname] || 'Dashboard';
+    if (window.updatePageTitle) {
+      window.updatePageTitle(currentTitle);
+    } else {
+      document.title = `${currentTitle} - HydrantHub | Trident Systems`;
+    }
+  }, [location.pathname]);
+  
+  return null;
+}
+
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return (<Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh"><CircularProgress size={60} /></Box>);
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return (<Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh"><CircularProgress size={60} /></Box>);
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
   return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
+      {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/test" element={<TestPage />} />
-
-      {/* Protected */}
+      
+      {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><HydrantMap /></ProtectedRoute>} />
       <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
-
-      {/* Defaults */}
+      
+      {/* Default Routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
+      
+      {/* 404 Catch-all - Redirect to dashboard if authenticated, login if not */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -63,11 +109,34 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <Router>
-          <div className="App">
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            minHeight: '100vh' 
+          }}>
+            <TitleUpdater />
             <Navigation />
-            <AppRoutes />
-            <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" toastStyle={{ fontFamily: theme.typography.fontFamily }} />
-          </div>
+            
+            <Box component="main" sx={{ flexGrow: 1 }}>
+              <AppRoutes />
+            </Box>
+            
+            <Footer />
+            
+            <ToastContainer 
+              position="top-right" 
+              autoClose={5000} 
+              hideProgressBar={false} 
+              newestOnTop={false} 
+              closeOnClick 
+              rtl={false} 
+              pauseOnFocusLoss 
+              draggable 
+              pauseOnHover 
+              theme="light" 
+              toastStyle={{ fontFamily: theme.typography.fontFamily }} 
+            />
+          </Box>
         </Router>
       </AuthProvider>
     </ThemeProvider>
