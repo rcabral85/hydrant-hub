@@ -6,6 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Navigation from './components/Navigation';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import HydrantMap from './components/HydrantMap';
@@ -37,148 +38,54 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: {
-      fontWeight: 700,
-    },
-    h2: {
-      fontWeight: 600,
-    },
-    h3: {
-      fontWeight: 600,
-    },
-    h4: {
-      fontWeight: 600,
-    },
-    h5: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 600,
-    },
+    h1: { fontWeight: 700 },
+    h2: { fontWeight: 600 },
+    h3: { fontWeight: 600 },
+    h4: { fontWeight: 600 },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 600 },
   },
-  shape: {
-    borderRadius: 8,
-  },
+  shape: { borderRadius: 8 },
   components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          fontWeight: 600,
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-          '&:hover': {
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-          },
-        },
-      },
-    },
+    MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
+    MuiCard: { styleOverrides: { root: { boxShadow: '0 2px 12px rgba(0,0,0,0.08)', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } } } },
   },
 });
 
-// Protected Route Component
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
   if (isLoading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress size={60} />
       </Box>
     );
   }
-  
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
-// Public Route Component (redirect if already authenticated)
 function PublicRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
   if (isLoading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress size={60} />
       </Box>
     );
   }
-  
   return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
 }
 
-// Main App Routes
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public Routes */}
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />
-      
-      {/* Test Route - Public for easy access */}
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/test" element={<TestPage />} />
-      
-      {/* Protected Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/map"
-        element={
-          <ProtectedRoute>
-            <HydrantMap />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/flow-test"
-        element={
-          <ProtectedRoute>
-            <FlowTestForm />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/flow-test/:hydrantId"
-        element={
-          <ProtectedRoute>
-            <FlowTestForm />
-          </ProtectedRoute>
-        }
-      />
-      
-      {/* Default redirect */}
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/map" element={<ProtectedRoute><HydrantMap /></ProtectedRoute>} />
+      <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
+      <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to="/test" replace />} />
-      
-      {/* Catch-all route */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -191,24 +98,9 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="App">
+            <Navigation />
             <AppRoutes />
-            
-            {/* Toast notifications */}
-            <ToastContainer
-              position="top-right"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
-              toastStyle={{
-                fontFamily: theme.typography.fontFamily,
-              }}
-            />
+            <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" toastStyle={{ fontFamily: theme.typography.fontFamily }} />
           </div>
         </Router>
       </AuthProvider>
