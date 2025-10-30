@@ -35,7 +35,7 @@ function Login() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [formData, setFormData] = useState({
-    username: '',
+    identifier: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -51,7 +51,6 @@ function Login() {
       [name]: value
     }));
     
-    // Clear field error when user starts typing
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
@@ -63,8 +62,8 @@ function Login() {
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
+    if (!formData.identifier.trim()) {
+      errors.identifier = 'Username or Email is required';
     }
     
     if (!formData.password) {
@@ -82,7 +81,7 @@ function Login() {
       return;
     }
 
-    const result = await login(formData.username, formData.password);
+    const result = await login(formData.identifier, formData.password);
     
     if (result.success) {
       navigate(from, { replace: true });
@@ -113,7 +112,6 @@ function Login() {
           padding: 2
         }}
       >
-        {/* Left Side - Branding/Info (hidden on mobile) */}
         {!isMobile && (
           <Box
             sx={{
@@ -153,7 +151,6 @@ function Login() {
           </Box>
         )}
 
-        {/* Right Side - Login Form */}
         <Box
           sx={{
             flex: isMobile ? 1 : 0.8,
@@ -170,7 +167,6 @@ function Login() {
               backdropFilter: 'blur(10px)'
             }}
           >
-            {/* Mobile header */}
             {isMobile && (
               <Box sx={{ textAlign: 'center', mb: 3 }}>
                 <LocalFireDepartment sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
@@ -194,7 +190,7 @@ function Login() {
             </Typography>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Sign in to access your hydrant management dashboard
+              Sign in with your Username or Email to access your dashboard
             </Typography>
 
             {error && (
@@ -208,15 +204,15 @@ function Login() {
                 margin="normal"
                 required
                 fullWidth
-                id="username"
-                label="Username"
-                name="username"
+                id="identifier"
+                label="Username or Email"
+                name="identifier"
                 autoComplete="username"
                 autoFocus
-                value={formData.username}
+                value={formData.identifier}
                 onChange={handleChange}
-                error={!!formErrors.username}
-                helperText={formErrors.username}
+                error={!!formErrors.identifier}
+                helperText={formErrors.identifier}
                 sx={{ mb: 2 }}
               />
               
@@ -291,7 +287,6 @@ function Login() {
             </Box>
           </Paper>
 
-          {/* Footer */}
           <Box sx={{ textAlign: 'center', mt: 3 }}>
             <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
               © 2025 Trident Systems. Built for water operators by water operators.
