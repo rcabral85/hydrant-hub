@@ -1,24 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Grid, Paper, Typography, Stack, Chip, Divider, Alert } from '@mui/material';
+import { Box, Grid, Paper, Typography, Stack, Chip, Divider, Alert, Button, IconButton } from '@mui/material';
+import { Add, PictureAsPdf } from '@mui/icons-material';
 import api from '../services/api';
 import dayjs from 'dayjs';
+import { generateHydrantSummaryPDF } from '../utils/pdfGenerator';
 
 export default function Dashboard() {
   const [hydrants, setHydrants] = useState([]);
   const [flowTests, setFlowTests] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const h = await api.get('/hydrants');
+      setHydrants(h.data.hydrants || []);
+      const ft = await api.get('/flow-tests');
+      setFlowTests(ft.data.flowTests || []);
+    } catch (e) {
+      setError(e.response?.data || e.message);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const h = await api.get('/hydrants');
-        setHydrants(h.data.hydrants || []);
-        const ft = await api.get('/flow-tests');
-        setFlowTests(ft.data.flowTests || []);
-      } catch (e) {
-        setError(e.response?.data || e.message);
-      }
-    })();
+    loadData();
   }, []);
 
   const counters = useMemo(() => {
@@ -30,9 +35,66 @@ export default function Dashboard() {
     return { total, active, outOfService, last7, dueSoon };
   }, [hydrants, flowTests]);
 
+  const createDemoTest = async () => {
+    setLoading(true);
+    try {
+      const activeHydrant = hydrants.find(h => (h.status || '').toLowerCase() === 'active');
+      if (!activeHydrant) {
+        setError('No active hydrants available for demo test');
+        return;
+      }
+
+      const payload = {
+        hydrant_id: activeHydrant.id,
+        test_date: dayjs().format('YYYY-MM-DD'),
+        static_pressure_psi: 65,
+        residual_pressure_psi: 45,
+        outlets: [
+          { size: 2.5, pitotPressure: 42, coefficient: 0.9 },
+          { size: 2.5, pitotPressure: 38, coefficient: 0.9 }
+        ],
+        weather_conditions: 'Clear',
+        temperature_f: 72,
+        notes: 'Demo flow test created from dashboard'
+      };
+
+      await api.post('/flow-tests', payload);
+      await loadData(); // Refresh data
+      setError(null);
+    } catch (e) {
+      setError(e.response?.data || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generatePDF = () => {
+    generateHydrantSummaryPDF(hydrants);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>HydrantHub Dashboard</Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Typography variant="h5">HydrantHub Dashboard</Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Add />}
+            onClick={createDemoTest}
+            disabled={loading}
+          >
+            Create Demo Flow Test
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<PictureAsPdf />}
+            onClick={generatePDF}
+            disabled={hydrants.length === 0}
+          >
+            Export PDF Summary
+          </Button>
+        </Stack>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
