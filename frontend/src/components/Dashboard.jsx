@@ -1,69 +1,110 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react';
+import { Box, Grid, Paper, Typography, Stack, Chip, Divider, Alert } from '@mui/material';
+import api from '../services/api';
+import dayjs from 'dayjs';
 
-const apiUrl = import.meta.env.VITE_API_URL || 'https://hydrant-management-production.up.railway.app/api'
-
-const Dashboard = () => {
-  const [stats, setStats] = useState({ totalHydrants: 0, activeHydrants: 0, lastTest: null })
-  const [list, setList] = useState([])
+export default function Dashboard() {
+  const [hydrants, setHydrants] = useState([]);
+  const [flowTests, setFlowTests] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
-        const res = await fetch(`${apiUrl}/hydrants`)
-        const data = await res.json()
-        const hydrants = data.hydrants || []
-        setList(hydrants)
-        setStats({
-          totalHydrants: hydrants.length,
-          activeHydrants: hydrants.filter(h => (h.status || '').toLowerCase() === 'active').length,
-          lastTest: null
-        })
+        const h = await api.get('/hydrants');
+        setHydrants(h.data.hydrants || []);
+        const ft = await api.get('/flow-tests');
+        setFlowTests(ft.data.flowTests || []);
       } catch (e) {
-        console.error('Failed to load hydrants', e)
+        setError(e.response?.data || e.message);
       }
-    }
-    load()
-  }, [])
+    })();
+  }, []);
+
+  const counters = useMemo(() => {
+    const total = hydrants.length;
+    const active = hydrants.filter(h => (h.status || '').toLowerCase() === 'active').length;
+    const outOfService = hydrants.filter(h => (h.status || '').toLowerCase() === 'out_of_service').length;
+    const last7 = flowTests.filter(ft => dayjs(ft.test_date).isAfter(dayjs().subtract(7, 'day'))).length;
+    const dueSoon = hydrants.filter(h => h.next_test_due && dayjs(h.next_test_due).isBefore(dayjs().add(30, 'day'))).length;
+    return { total, active, outOfService, last7, dueSoon };
+  }, [hydrants, flowTests]);
 
   return (
-    <div style={{ padding: '20px', color: 'white' }}>
-      <h2>📊 Dashboard</h2>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5" gutterBottom>HydrantHub Dashboard</Typography>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
-        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
-          <h3>🚰 Total Hydrants</h3>
-          <p style={{ fontSize: '2em', margin: '10px 0' }}>{stats.totalHydrants}</p>
-        </div>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {typeof error === 'string' ? error : JSON.stringify(error)}
+        </Alert>
+      )}
 
-        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
-          <h3>✅ Active Hydrants</h3>
-          <p style={{ fontSize: '2em', margin: '10px 0' }}>{stats.activeHydrants}</p>
-        </div>
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Total Hydrants</Typography>
+            <Typography variant="h4">{counters.total}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Active</Typography>
+            <Typography variant="h4">{counters.active}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Out of Service</Typography>
+            <Typography variant="h4">{counters.outOfService}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Tests (7 days)</Typography>
+            <Typography variant="h4">{counters.last7}</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
 
-        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
-          <h3>🧪 Last Test</h3>
-          <p>{stats.lastTest || 'No tests recorded'}</p>
-        </div>
-      </div>
-
-      <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px', margin: '20px 0' }}>
-        <h3>🧾 Hydrants</h3>
-        {list.length === 0 ? (
-          <p>No hydrants found.</p>
+      <Paper sx={{ p: 2, mt: 3 }}>
+        <Typography variant="h6">Next Tests Due (30 days)</Typography>
+        <Divider sx={{ my: 1 }} />
+        {hydrants.filter(h => h.next_test_due && dayjs(h.next_test_due).isBefore(dayjs().add(30, 'day'))).length === 0 ? (
+          <Typography variant="body2">No tests due in the next 30 days.</Typography>
         ) : (
-          <div style={{ maxWidth: 800, margin: '0 auto' }}>
-            {list.map(h => (
-              <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, padding: 10, marginBottom: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 8 }}>
-                <div><strong>#{h.hydrant_number}</strong></div>
-                <div>{h.address}</div>
-                <div style={{ textTransform: 'capitalize' }}>{h.status || 'unknown'}</div>
-              </div>
-            ))}
-          </div>
+          <Stack spacing={1}>
+            {hydrants
+              .filter(h => h.next_test_due && dayjs(h.next_test_due).isBefore(dayjs().add(30, 'day')))
+              .map(h => (
+                <Stack key={h.id} direction="row" spacing={1} alignItems="center">
+                  <Chip label={h.hydrant_number} />
+                  <Typography variant="body2">{h.address}</Typography>
+                  <Chip label={dayjs(h.next_test_due).format('YYYY-MM-DD')} size="small" />
+                </Stack>
+              ))}
+          </Stack>
         )}
-      </div>
-    </div>
-  )
-}
+      </Paper>
 
-export default Dashboard
+      <Paper sx={{ p: 2, mt: 3 }}>
+        <Typography variant="h6">Recent Flow Tests</Typography>
+        <Divider sx={{ my: 1 }} />
+        {flowTests.length === 0 ? (
+          <Typography variant="body2">No flow tests recorded yet.</Typography>
+        ) : (
+          <Stack spacing={1}>
+            {flowTests.slice(0, 5).map(ft => (
+              <Stack key={ft.id} direction="row" spacing={1} alignItems="center">
+                <Chip label={ft.test_number} />
+                <Typography variant="body2">{dayjs(ft.test_date).format('YYYY-MM-DD')}</Typography>
+                <Chip label={`${ft.total_flow_gpm} GPM`} />
+                <Chip label={`Class ${ft.nfpa_class}`} />
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      </Paper>
+    </Box>
+  );
+}
