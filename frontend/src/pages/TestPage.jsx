@@ -12,7 +12,7 @@ import {
   Chip,
   Divider
 } from '@mui/material';
-import { CheckCircle, Error, API, LocationOn } from '@mui/icons-material';
+import { CheckCircle, Error, BugReport, LocationOn } from '@mui/icons-material';
 import api from '../services/api';
 
 function TestPage() {
@@ -137,7 +137,7 @@ function TestPage() {
             variant="contained" 
             onClick={runTests} 
             disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} /> : <API />}
+            startIcon={loading ? <CircularProgress size={20} /> : <BugReport />}
           >
             {loading ? 'Running Tests...' : 'Run API Tests'}
           </Button>
@@ -167,14 +167,14 @@ function TestPage() {
         <TestResultCard 
           title="Flow Tests List" 
           result={testResults.flowTests}
-          icon={<API color="primary" />}
+          icon={<BugReport color="primary" />}
         />
 
         {testResults.sampleTest && (
           <TestResultCard 
             title="Sample Flow Test Creation" 
             result={testResults.sampleTest}
-            icon={<API color="primary" />}
+            icon={<BugReport color="primary" />}
           />
         )}
 
