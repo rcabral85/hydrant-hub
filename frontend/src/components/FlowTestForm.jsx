@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Paper, Typography, TextField, Button, Stack, IconButton, Alert, Chip } from '@mui/material';
-import { AddCircle, RemoveCircle } from '@mui/icons-material';
+import { AddCircle, RemoveCircle, PictureAsPdf } from '@mui/icons-material';
 import api, { listHydrants } from '../services/api';
 import dayjs from 'dayjs';
+import { generateFlowTestPDF } from '../utils/pdfGenerator';
 
 export default function FlowTestForm() {
   const [hydrants, setHydrants] = useState([]);
@@ -87,6 +88,13 @@ export default function FlowTestForm() {
     }
   };
 
+  const generatePDF = () => {
+    if (result?.flowTest) {
+      const hydrant = hydrants.find(h => h.id === selectedHydrantId);
+      generateFlowTestPDF(result.flowTest, hydrant);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>NFPA 291 Flow Test</Typography>
@@ -145,7 +153,17 @@ export default function FlowTestForm() {
 
       {result && (
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Flow Test Created</Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+            <Typography variant="h6">Flow Test Created</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<PictureAsPdf />}
+              onClick={generatePDF}
+              size="small"
+            >
+              Generate PDF
+            </Button>
+          </Stack>
           <Typography variant="body2" sx={{ mt: 1 }}>
             Test Number: {result.flowTest?.test_number}
           </Typography>
