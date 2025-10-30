@@ -32,7 +32,7 @@ export default function Navigation() {
 
   const path = location.pathname;
 
-  const logoUrl = 'https://raw.githubusercontent.com/rcabral85/tridentsys/main/trident-logo.png';
+  const logoUrl = 'https://tridentsys.ca/trident-logo.png';
 
   return (
     <AppBar position="static" color="primary" elevation={2}>
