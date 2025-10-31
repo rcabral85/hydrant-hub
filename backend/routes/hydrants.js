@@ -1,34 +1,33 @@
+// HydrantHub Backend - Enhanced Hydrant CRUD Routes
+// Complete hydrant management with validation and maintenance integration
+// Supports creation, updates, and enhanced querying for the upgraded frontend
+
 const express = require('express');
+const router = express.Router();
 const { db } = require('../config/database');
 const Joi = require('joi');
-const router = express.Router();
 
-// Validation schemas
+// Enhanced validation schemas for the new frontend
 const hydrantSchema = Joi.object({
-  organization_id: Joi.string().uuid().required(),
+  organization_id: Joi.string().uuid().optional(), // Make optional for simpler frontend
   hydrant_number: Joi.string().max(50).required(),
-  address: Joi.string().max(500).optional(),
   manufacturer: Joi.string().max(100).optional(),
   model: Joi.string().max(100).optional(),
-  year_installed: Joi.number().integer().min(1900).max(new Date().getFullYear()).optional(),
-  size_inches: Joi.number().positive().optional(),
-  outlet_count: Joi.number().integer().min(1).max(10).default(2),
-  outlet_sizes: Joi.array().items(Joi.object({
-    size: Joi.number().positive().required(),
-    count: Joi.number().integer().positive().required()
-  })).optional(),
-  steamer_size: Joi.number().positive().optional(),
-  elevation_feet: Joi.number().optional(),
-  water_main_size_inches: Joi.number().positive().optional(),
-  valve_to_hydrant_feet: Joi.number().integer().min(0).optional(),
-  status: Joi.string().valid('active', 'inactive', 'removed', 'out_of_service').default('active'),
-  notes: Joi.string().max(1000).optional(),
-  // GPS coordinates (Railway compatible)
-  lat: Joi.number().min(-90).max(90).optional(),
-  lon: Joi.number().min(-180).max(180).optional()
+  installation_date: Joi.date().optional(),
+  latitude: Joi.number().min(-90).max(90).required(),
+  longitude: Joi.number().min(-180).max(180).required(),
+  location_address: Joi.string().max(500).required(),
+  location_description: Joi.string().max(1000).optional(),
+  watermain_size_mm: Joi.number().integer().positive().default(200),
+  static_pressure_psi: Joi.number().positive().optional(),
+  operational_status: Joi.string().valid('OPERATIONAL', 'OUT_OF_SERVICE', 'MAINTENANCE_REQUIRED', 'TESTING', 'DECOMMISSIONED').default('OPERATIONAL'),
+  nfpa_classification: Joi.string().valid('AA', 'A', 'B', 'C').optional(),
+  inspector_notes: Joi.string().max(2000).optional(),
+  created_by: Joi.string().max(100).optional(),
+  updated_by: Joi.string().max(100).optional()
 });
 
-const hydrantUpdateSchema = hydrantSchema.fork(['organization_id', 'hydrant_number'], (schema) => schema.optional());
+const hydrantUpdateSchema = hydrantSchema.fork(['hydrant_number', 'latitude', 'longitude', 'location_address'], (schema) => schema.optional());
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -42,60 +41,73 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; // Distance in kilometers
 }
 
-// GET /api/hydrants - List hydrants with filtering and spatial queries
+// GET /api/hydrants - List all hydrants with optional filtering (Enhanced for new frontend)
 router.get('/', async (req, res, next) => {
   try {
-    const {
-      organization_id,
-      status = 'active',
-      nfpa_class,
+    const { 
+      limit = 100, 
+      offset = 0, 
+      status, 
+      nfpa_class, 
+      municipality,
       search,
       near_lat,
       near_lon,
-      radius_km = 10,
-      limit = 100,
-      offset = 0
+      radius_km = 10
     } = req.query;
-
+    
     let query = `
       SELECT 
         h.*,
-        o.name as organization_name,
+        h.operational_status as status,
+        h.location_address as address,
+        h.nfpa_classification as nfpa_class,
+        ft.total_flow_gpm as flow_rate_gpm,
+        ft.test_date as last_flow_test_date,
+        mi.inspection_date as last_inspection_date,
+        mi.overall_status as last_inspection_status,
         (
-          SELECT COUNT(*) FROM flow_tests ft WHERE ft.hydrant_id = h.id
-        ) as test_count,
-        (
-          SELECT MAX(ft.test_date) FROM flow_tests ft WHERE ft.hydrant_id = h.id
-        ) as last_test_date
+          SELECT COUNT(*) FROM flow_tests ft2 WHERE ft2.hydrant_id = h.id
+        ) as test_count
       FROM hydrants h
-      LEFT JOIN organizations o ON h.organization_id = o.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id) 
+          hydrant_id, total_flow_gpm, test_date
+        FROM flow_tests 
+        ORDER BY hydrant_id, test_date DESC
+      ) ft ON h.id = ft.hydrant_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id)
+          hydrant_id, inspection_date, overall_status
+        FROM maintenance_inspections
+        ORDER BY hydrant_id, inspection_date DESC
+      ) mi ON h.id = mi.hydrant_id
       WHERE 1=1
     `;
     
     const params = [];
     let paramCount = 0;
-
-    if (organization_id) {
-      params.push(organization_id);
-      query += ` AND h.organization_id = $${++paramCount}`;
-    }
-
-    if (status && status !== 'all') {
+    
+    // Add filters
+    if (status) {
+      paramCount++;
+      query += ` AND h.operational_status = $${paramCount}`;
       params.push(status);
-      query += ` AND h.status = $${++paramCount}`;
     }
-
+    
     if (nfpa_class) {
+      paramCount++;
+      query += ` AND h.nfpa_classification = $${paramCount}`;
       params.push(nfpa_class);
-      query += ` AND h.nfpa_class = $${++paramCount}`;
     }
-
+    
     if (search) {
+      paramCount++;
+      query += ` AND (h.hydrant_number ILIKE $${paramCount} OR h.location_address ILIKE $${paramCount})`;
       params.push(`%${search}%`);
-      query += ` AND (h.hydrant_number ILIKE $${++paramCount} OR h.address ILIKE $${paramCount})`;
     }
-
-    // Spatial proximity search using bounding box (Railway compatible)
+    
+    // Spatial proximity search
     if (near_lat && near_lon) {
       const lat = parseFloat(near_lat);
       const lon = parseFloat(near_lon);
@@ -105,26 +117,26 @@ router.get('/', async (req, res, next) => {
       const latDelta = radiusKm / 111.0;
       const lonDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180));
       
+      paramCount += 4;
+      query += ` AND h.latitude BETWEEN $${paramCount-3} AND $${paramCount-2} AND h.longitude BETWEEN $${paramCount-1} AND $${paramCount}`;
       params.push(lat - latDelta, lat + latDelta, lon - lonDelta, lon + lonDelta);
-      query += ` AND h.lat BETWEEN $${++paramCount} AND $${++paramCount} AND h.lon BETWEEN $${++paramCount} AND $${++paramCount}`;
     }
-
-    query += ` ORDER BY h.hydrant_number ASC`;
     
+    query += ` ORDER BY h.hydrant_number`;
+    
+    // Add pagination
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
     params.push(parseInt(limit));
-    query += ` LIMIT $${++paramCount}`;
     
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
     params.push(parseInt(offset));
-    query += ` OFFSET $${++paramCount}`;
-
+    
     const result = await db.query(query, params);
     
-    // Parse JSON fields and filter by precise distance if needed
-    let hydrants = result.rows.map(row => ({
-      ...row,
-      outlet_sizes: typeof row.outlet_sizes === 'string' ? JSON.parse(row.outlet_sizes) : row.outlet_sizes
-    }));
-
+    let hydrants = result.rows;
+    
     // Apply precise distance filtering if location search was requested
     if (near_lat && near_lon) {
       const searchLat = parseFloat(near_lat);
@@ -133,166 +145,296 @@ router.get('/', async (req, res, next) => {
       
       hydrants = hydrants
         .filter(h => {
-          if (!h.lat || !h.lon) return false;
-          const distance = calculateDistance(searchLat, searchLon, h.lat, h.lon);
-          h.distance_km = Math.round(distance * 100) / 100; // Round to 2 decimal places
+          if (!h.latitude || !h.longitude) return false;
+          const distance = calculateDistance(searchLat, searchLon, h.latitude, h.longitude);
+          h.distance_km = Math.round(distance * 100) / 100;
           return distance <= maxDistanceKm;
         })
         .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0));
     }
-
+    
     res.json({
       success: true,
       hydrants,
+      count: hydrants.length,
       pagination: {
         limit: parseInt(limit),
-        offset: parseInt(offset),
-        count: hydrants.length
+        offset: parseInt(offset)
       }
     });
-
   } catch (error) {
-    console.error('Hydrants listing error:', error);
-    next(error);
+    console.error('Error fetching hydrants:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch hydrants',
+      error: error.message 
+    });
   }
 });
 
-// GET /api/hydrants/:id - Get specific hydrant with full details
+// GET /api/hydrants/map/geojson - Get hydrants as GeoJSON for mapping (Enhanced)
+router.get('/map/geojson', async (req, res, next) => {
+  try {
+    const { status, nfpa_class } = req.query;
+    
+    let query = `
+      SELECT 
+        h.id,
+        h.hydrant_number,
+        h.latitude,
+        h.longitude,
+        h.location_address as address,
+        h.operational_status,
+        h.nfpa_classification,
+        ft.total_flow_gpm as flow_rate_gpm,
+        ft.static_pressure_psi,
+        h.manufacturer,
+        h.model,
+        h.watermain_size_mm,
+        h.installation_date,
+        ft.test_date as last_flow_test_date,
+        mi.inspection_date as last_inspection_date
+      FROM hydrants h
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id) 
+          hydrant_id, total_flow_gpm, static_pressure_psi, test_date
+        FROM flow_tests 
+        ORDER BY hydrant_id, test_date DESC
+      ) ft ON h.id = ft.hydrant_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id)
+          hydrant_id, inspection_date
+        FROM maintenance_inspections
+        ORDER BY hydrant_id, inspection_date DESC
+      ) mi ON h.id = mi.hydrant_id
+      WHERE h.latitude IS NOT NULL AND h.longitude IS NOT NULL
+    `;
+    
+    const params = [];
+    let paramCount = 0;
+    
+    if (status && status !== 'all') {
+      paramCount++;
+      query += ` AND h.operational_status = $${paramCount}`;
+      params.push(status);
+    }
+    
+    if (nfpa_class) {
+      paramCount++;
+      query += ` AND h.nfpa_classification = $${paramCount}`;
+      params.push(nfpa_class);
+    }
+    
+    query += ` ORDER BY h.hydrant_number`;
+    
+    const result = await db.query(query, params);
+    
+    const geojson = {
+      type: 'FeatureCollection',
+      features: result.rows.map(hydrant => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [parseFloat(hydrant.longitude), parseFloat(hydrant.latitude)]
+        },
+        properties: {
+          id: hydrant.id,
+          hydrant_number: hydrant.hydrant_number,
+          address: hydrant.address,
+          location_address: hydrant.address,
+          operational_status: hydrant.operational_status,
+          status: hydrant.operational_status, // Alias for compatibility
+          nfpa_class: hydrant.nfpa_classification || 'C',
+          nfpa_classification: hydrant.nfpa_classification || 'C',
+          flow_rate_gpm: hydrant.flow_rate_gpm,
+          static_pressure_psi: hydrant.static_pressure_psi,
+          manufacturer: hydrant.manufacturer,
+          model: hydrant.model,
+          watermain_size_mm: hydrant.watermain_size_mm,
+          installation_date: hydrant.installation_date,
+          last_flow_test_date: hydrant.last_flow_test_date,
+          last_inspection_date: hydrant.last_inspection_date
+        }
+      }))
+    };
+    
+    res.json({
+      success: true,
+      geojson
+    });
+  } catch (error) {
+    console.error('Error fetching hydrant GeoJSON:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch hydrant map data',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/hydrants/:id - Get single hydrant details (Enhanced)
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const result = await db.query(`
+    const query = `
       SELECT 
         h.*,
-        o.name as organization_name,
-        o.type as organization_type,
+        h.operational_status as status,
+        h.location_address as address,
+        h.nfpa_classification as nfpa_class,
+        ft.total_flow_gpm as flow_rate_gpm,
+        ft.test_date as last_flow_test_date,
+        mi.inspection_date as last_inspection_date,
+        mi.overall_status as last_inspection_status,
         (
-          SELECT COUNT(*) FROM flow_tests ft WHERE ft.hydrant_id = h.id
+          SELECT COUNT(*) FROM flow_tests ft2 WHERE ft2.hydrant_id = h.id
         ) as test_count,
         (
-          SELECT COUNT(*) FROM inspections i WHERE i.hydrant_id = h.id
-        ) as inspection_count,
-        (
-          SELECT MAX(ft.test_date) FROM flow_tests ft WHERE ft.hydrant_id = h.id
-        ) as last_test_date,
-        (
-          SELECT MAX(i.inspection_date) FROM inspections i WHERE i.hydrant_id = h.id
-        ) as last_inspection_date
+          SELECT COUNT(*) FROM maintenance_inspections mi2 WHERE mi2.hydrant_id = h.id
+        ) as inspection_count
       FROM hydrants h
-      LEFT JOIN organizations o ON h.organization_id = o.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id) 
+          hydrant_id, total_flow_gpm, test_date
+        FROM flow_tests 
+        ORDER BY hydrant_id, test_date DESC
+      ) ft ON h.id = ft.hydrant_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (hydrant_id)
+          hydrant_id, inspection_date, overall_status
+        FROM maintenance_inspections
+        ORDER BY hydrant_id, inspection_date DESC
+      ) mi ON h.id = mi.hydrant_id
       WHERE h.id = $1
-    `, [id]);
-
+    `;
+    
+    const result = await db.query(query, [id]);
+    
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Hydrant not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Hydrant not found'
+      });
     }
-
-    const hydrant = result.rows[0];
     
     res.json({
       success: true,
-      hydrant: {
-        ...hydrant,
-        outlet_sizes: typeof hydrant.outlet_sizes === 'string' ? JSON.parse(hydrant.outlet_sizes) : hydrant.outlet_sizes
-      }
+      hydrant: result.rows[0]
     });
-
   } catch (error) {
-    console.error('Hydrant retrieval error:', error);
-    next(error);
+    console.error('Error fetching hydrant:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch hydrant details',
+      error: error.message 
+    });
   }
 });
 
-// POST /api/hydrants - Create new hydrant
+// POST /api/hydrants - Create new hydrant (Enhanced for new frontend)
 router.post('/', async (req, res, next) => {
   try {
     // Validate input data
     const { error, value } = hydrantSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
-        error: 'Validation failed',
+        success: false,
+        message: 'Validation failed',
         details: error.details.map(d => d.message)
       });
     }
 
     const hydrantData = value;
     
-    // Check if hydrant number already exists for this organization
+    // Check if hydrant number already exists
     const existingCheck = await db.query(
-      'SELECT id FROM hydrants WHERE organization_id = $1 AND hydrant_number = $2',
-      [hydrantData.organization_id, hydrantData.hydrant_number]
+      'SELECT id FROM hydrants WHERE hydrant_number = $1',
+      [hydrantData.hydrant_number]
     );
     
     if (existingCheck.rows.length > 0) {
-      return res.status(409).json({ 
-        error: 'Hydrant number already exists for this organization' 
+      return res.status(409).json({
+        success: false,
+        message: `Hydrant number ${hydrantData.hydrant_number} already exists`
       });
     }
 
-    // Verify organization exists
-    const orgCheck = await db.query(
-      'SELECT id, name FROM organizations WHERE id = $1',
-      [hydrantData.organization_id]
-    );
-    
-    if (orgCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Organization not found' });
-    }
-
-    // Generate QR code
+    // Generate QR code for new hydrant
     const qrCode = `HH-${hydrantData.hydrant_number}-${Date.now().toString(36)}`;
 
+    // Insert new hydrant with all the enhanced fields
     const insertQuery = `
       INSERT INTO hydrants (
-        organization_id, hydrant_number, lat, lon, address, manufacturer, model, 
-        year_installed, size_inches, outlet_count, outlet_sizes, steamer_size,
-        elevation_feet, water_main_size_inches, valve_to_hydrant_feet, 
-        status, notes, qr_code
+        hydrant_number,
+        manufacturer,
+        model,
+        installation_date,
+        latitude,
+        longitude,
+        location_address,
+        location_description,
+        watermain_size_mm,
+        static_pressure_psi,
+        operational_status,
+        nfpa_classification,
+        inspector_notes,
+        qr_code,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-      ) RETURNING *`;
-
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()
+      ) RETURNING *
+    `;
+    
     const insertValues = [
-      hydrantData.organization_id,
       hydrantData.hydrant_number,
-      hydrantData.lat,
-      hydrantData.lon,
-      hydrantData.address,
       hydrantData.manufacturer,
       hydrantData.model,
-      hydrantData.year_installed,
-      hydrantData.size_inches,
-      hydrantData.outlet_count,
-      JSON.stringify(hydrantData.outlet_sizes || []),
-      hydrantData.steamer_size,
-      hydrantData.elevation_feet,
-      hydrantData.water_main_size_inches,
-      hydrantData.valve_to_hydrant_feet,
-      hydrantData.status,
-      hydrantData.notes,
-      qrCode
+      hydrantData.installation_date,
+      parseFloat(hydrantData.latitude),
+      parseFloat(hydrantData.longitude),
+      hydrantData.location_address,
+      hydrantData.location_description,
+      parseInt(hydrantData.watermain_size_mm) || 200,
+      hydrantData.static_pressure_psi ? parseFloat(hydrantData.static_pressure_psi) : null,
+      hydrantData.operational_status || 'OPERATIONAL',
+      hydrantData.nfpa_classification,
+      hydrantData.inspector_notes,
+      qrCode,
+      hydrantData.created_by || 'system',
+      hydrantData.updated_by || 'system'
     ];
 
     const result = await db.query(insertQuery, insertValues);
-    const hydrant = result.rows[0];
-
+    
     res.status(201).json({
       success: true,
-      hydrant: {
-        ...hydrant,
-        outlet_sizes: JSON.parse(hydrant.outlet_sizes || '[]')
-      },
-      organization: orgCheck.rows[0]
+      message: 'Hydrant created successfully',
+      hydrant: result.rows[0]
     });
-
   } catch (error) {
-    console.error('Hydrant creation error:', error);
-    next(error);
+    console.error('Error creating hydrant:', error);
+    
+    // Handle specific database errors
+    if (error.code === '23505') { // unique violation
+      return res.status(409).json({
+        success: false,
+        message: 'Hydrant number already exists'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create hydrant',
+      error: error.message 
+    });
   }
 });
 
-// PUT /api/hydrants/:id - Update hydrant
+// PUT /api/hydrants/:id - Update existing hydrant (Enhanced)
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -301,7 +443,8 @@ router.put('/:id', async (req, res, next) => {
     const { error, value } = hydrantUpdateSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
-        error: 'Validation failed',
+        success: false,
+        message: 'Validation failed',
         details: error.details.map(d => d.message)
       });
     }
@@ -315,7 +458,10 @@ router.put('/:id', async (req, res, next) => {
     );
     
     if (existingHydrant.rows.length === 0) {
-      return res.status(404).json({ error: 'Hydrant not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Hydrant not found'
+      });
     }
 
     // Build dynamic update query
@@ -323,17 +469,30 @@ router.put('/:id', async (req, res, next) => {
     const updateValues = [id]; // First parameter is always the ID
     let paramCount = 1;
 
+    // Map of field names that might need conversion
+    const fieldConversions = {
+      latitude: (val) => parseFloat(val),
+      longitude: (val) => parseFloat(val),
+      watermain_size_mm: (val) => parseInt(val),
+      static_pressure_psi: (val) => val ? parseFloat(val) : null
+    };
+
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
         updateFields.push(`${key} = $${++paramCount}`);
-        updateValues.push(key === 'outlet_sizes' ? JSON.stringify(value) : value);
+        const convertedValue = fieldConversions[key] ? fieldConversions[key](value) : value;
+        updateValues.push(convertedValue);
       }
     }
 
     if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'No valid fields to update' });
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
     }
 
+    // Always update the updated_at timestamp
     updateFields.push(`updated_at = NOW()`);
 
     const updateQuery = `
@@ -343,28 +502,37 @@ router.put('/:id', async (req, res, next) => {
       RETURNING *`;
 
     const result = await db.query(updateQuery, updateValues);
-    const hydrant = result.rows[0];
-
+    
     res.json({
       success: true,
-      hydrant: {
-        ...hydrant,
-        outlet_sizes: JSON.parse(hydrant.outlet_sizes || '[]')
-      }
+      message: 'Hydrant updated successfully',
+      hydrant: result.rows[0]
     });
-
   } catch (error) {
-    console.error('Hydrant update error:', error);
-    next(error);
+    console.error('Error updating hydrant:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update hydrant',
+      error: error.message 
+    });
   }
 });
 
-// DELETE /api/hydrants/:id - Soft delete hydrant (set status to removed)
+// DELETE /api/hydrants/:id - Delete hydrant (soft delete) (Enhanced)
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { permanent = false } = req.query;
-
+    
+    // Check if hydrant exists
+    const existsCheck = await db.query('SELECT id FROM hydrants WHERE id = $1', [id]);
+    if (existsCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hydrant not found'
+      });
+    }
+    
     if (permanent === 'true') {
       // Permanent deletion (use with caution)
       const result = await db.query(
@@ -372,40 +540,39 @@ router.delete('/:id', async (req, res, next) => {
         [id]
       );
       
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Hydrant not found' });
-      }
-
       res.json({
         success: true,
         message: 'Hydrant permanently deleted',
         hydrant: result.rows[0]
       });
     } else {
-      // Soft delete - set status to removed
+      // Soft delete by updating status
       const result = await db.query(
-        'UPDATE hydrants SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-        ['removed', id]
+        `UPDATE hydrants 
+         SET operational_status = 'DECOMMISSIONED', 
+             updated_at = NOW() 
+         WHERE id = $1 
+         RETURNING *`,
+        [id]
       );
       
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Hydrant not found' });
-      }
-
       res.json({
         success: true,
-        message: 'Hydrant marked as removed',
+        message: 'Hydrant decommissioned successfully',
         hydrant: result.rows[0]
       });
     }
-
   } catch (error) {
-    console.error('Hydrant deletion error:', error);
-    next(error);
+    console.error('Error decommissioning hydrant:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to decommission hydrant',
+      error: error.message 
+    });
   }
 });
 
-// GET /api/hydrants/:id/history - Get hydrant's test and inspection history
+// GET /api/hydrants/:id/history - Get hydrant's test and inspection history (Enhanced)
 router.get('/:id/history', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -419,30 +586,28 @@ router.get('/:id/history', async (req, res, next) => {
         ft.test_date as date,
         ft.test_number as reference,
         ft.total_flow_gpm,
-        ft.available_fire_flow_gpm,
         ft.nfpa_class,
-        u.first_name || ' ' || u.last_name as performed_by
+        ft.static_pressure_psi,
+        ft.operator_name as performed_by
       FROM flow_tests ft
-      LEFT JOIN users u ON ft.tested_by_user_id = u.id
       WHERE ft.hydrant_id = $1
       ORDER BY ft.test_date DESC
       LIMIT $2 OFFSET $3
     `, [id, parseInt(limit), parseInt(offset)]);
 
-    // Get inspections
+    // Get maintenance inspections
     const inspections = await db.query(`
       SELECT 
         'inspection' as type,
-        i.id,
-        i.inspection_date as date,
-        i.inspection_type as reference,
-        i.overall_condition,
-        i.maintenance_required,
-        u.first_name || ' ' || u.last_name as performed_by
-      FROM inspections i
-      LEFT JOIN users u ON i.inspector_user_id = u.id
-      WHERE i.hydrant_id = $1
-      ORDER BY i.inspection_date DESC
+        mi.id,
+        mi.inspection_date as date,
+        mi.inspection_type as reference,
+        mi.overall_condition,
+        mi.overall_status,
+        mi.inspector_name as performed_by
+      FROM maintenance_inspections mi
+      WHERE mi.hydrant_id = $1
+      ORDER BY mi.inspection_date DESC
       LIMIT $2 OFFSET $3
     `, [id, parseInt(limit), parseInt(offset)]);
 
@@ -463,76 +628,11 @@ router.get('/:id/history', async (req, res, next) => {
 
   } catch (error) {
     console.error('Hydrant history error:', error);
-    next(error);
-  }
-});
-
-// GET /api/hydrants/map/geojson - Get hydrants as GeoJSON for mapping (Railway compatible)
-router.get('/map/geojson', async (req, res, next) => {
-  try {
-    const { organization_id, status = 'active', nfpa_class } = req.query;
-
-    let query = `
-      SELECT 
-        h.id,
-        h.hydrant_number,
-        h.address,
-        h.nfpa_class,
-        h.available_flow_gpm,
-        h.status,
-        h.lat,
-        h.lon
-      FROM hydrants h
-      WHERE h.lat IS NOT NULL AND h.lon IS NOT NULL
-    `;
-    
-    const params = [];
-    let paramCount = 0;
-
-    if (organization_id) {
-      params.push(organization_id);
-      query += ` AND h.organization_id = $${++paramCount}`;
-    }
-
-    if (status && status !== 'all') {
-      params.push(status);
-      query += ` AND h.status = $${++paramCount}`;
-    }
-
-    if (nfpa_class) {
-      params.push(nfpa_class);
-      query += ` AND h.nfpa_class = $${++paramCount}`;
-    }
-
-    const result = await db.query(query, params);
-    
-    const geojson = {
-      type: 'FeatureCollection',
-      features: result.rows.map(row => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [row.lon, row.lat] // GeoJSON uses [longitude, latitude]
-        },
-        properties: {
-          id: row.id,
-          hydrant_number: row.hydrant_number,
-          address: row.address,
-          nfpa_class: row.nfpa_class,
-          available_flow_gpm: row.available_flow_gpm,
-          status: row.status
-        }
-      }))
-    };
-
-    res.json({
-      success: true,
-      geojson
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch hydrant history',
+      error: error.message
     });
-
-  } catch (error) {
-    console.error('GeoJSON generation error:', error);
-    next(error);
   }
 });
 
