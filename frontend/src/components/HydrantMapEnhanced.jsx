@@ -618,38 +618,3 @@ export default function HydrantMapEnhanced() {
     </Box>
   );
 }
-
-function Legend() {
-  return (
-    <Paper elevation={3} sx={{ position: 'absolute', top: 80, right: 16, p: 2, zIndex: 1000 }}>
-      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA Classes</Typography>
-      <Stack direction="column" spacing={1}>
-        {[
-          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Excellent' },
-          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Good' },
-          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Adequate' },
-          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Poor' },
-          { key: 'OUT_OF_SERVICE', label: 'Out of Service', desc: 'Inactive' }
-        ].map(item => (
-          <Stack key={item.key} direction="row" spacing={1} alignItems="center">
-            <Box 
-              sx={{ 
-                width: 16, 
-                height: 16, 
-                backgroundColor: NFPA_COLORS[item.key], 
-                borderRadius: '50%',
-                border: '1px solid rgba(0,0,0,0.2)'
-              }} 
-            />
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 500 }}>{item.label}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {item.desc}
-              </Typography>
-            </Box>
-          </Stack>
-        ))}
-      </Stack>
-    </Paper>
-  );
-}
