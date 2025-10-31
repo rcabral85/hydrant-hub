@@ -9,10 +9,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import Login from './components/Login';
-import Dashboard from './components/Dashboard';
+import EnhancedDashboard from './components/EnhancedDashboard';
 import HydrantMap from './components/HydrantMap';
 import FlowTestForm from './components/FlowTestForm';
-// Removed TestPage import for production
+import MaintenancePage from './components/MaintenancePage';
+import ReportsPage from './components/ReportsPage';
+import MaintenanceInspection from './components/MaintenanceInspection';
+import WorkOrderManagement from './components/WorkOrderManagement';
+import MobileInspection from './components/MobileInspection';
 import './App.css';
 
 const theme = createTheme({
@@ -32,6 +36,26 @@ const theme = createTheme({
     h6: { fontWeight: 600 } 
   },
   shape: { borderRadius: 8 },
+  components: {
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          '&:hover': {
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          }
+        }
+      }
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          fontWeight: 600
+        }
+      }
+    }
+  }
 });
 
 // SEO Title Updates
@@ -43,11 +67,20 @@ function TitleUpdater() {
       '/login': 'Login',
       '/dashboard': 'Dashboard',
       '/map': 'Hydrant Map',
+      '/maintenance': 'Maintenance Management',
+      '/maintenance/inspect': 'Maintenance Inspection',
+      '/maintenance/work-orders': 'Work Order Management',
+      '/maintenance/mobile': 'Mobile Inspection',
       '/flow-test': 'Flow Test Form',
-      '/reports': 'Reports'
+      '/reports': 'Reports & Analytics'
     };
     
-    const currentTitle = routeTitles[location.pathname] || 'Dashboard';
+    const currentTitle = Object.keys(routeTitles).find(route => 
+      location.pathname.startsWith(route)
+    ) ? routeTitles[Object.keys(routeTitles).find(route => 
+      location.pathname.startsWith(route)
+    )] : 'Dashboard';
+    
     if (window.updatePageTitle) {
       window.updatePageTitle(currentTitle);
     } else {
@@ -89,10 +122,20 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       
       {/* Protected Routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><EnhancedDashboard /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><HydrantMap /></ProtectedRoute>} />
       <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
+      
+      {/* Maintenance Routes */}
+      <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
+      <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MaintenanceInspection /></ProtectedRoute>} />
+      <Route path="/maintenance/inspect/:hydrantId/:inspectionId" element={<ProtectedRoute><MaintenanceInspection /></ProtectedRoute>} />
+      <Route path="/maintenance/work-orders" element={<ProtectedRoute><WorkOrderManagement /></ProtectedRoute>} />
+      <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
+      
+      {/* Reports Routes */}
+      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       
       {/* Default Routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
