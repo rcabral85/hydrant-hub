@@ -300,7 +300,7 @@ export default function HydrantAdd() {
                   </Button>
                 </Stack>
 
-                <FormControl fullWidth error={!!errors.manufacturer}}>
+                <FormControl fullWidth error={!!errors.manufacturer}>
                   <InputLabel>Manufacturer *</InputLabel>
                   <Select
                     value={hydrantData.manufacturer}
