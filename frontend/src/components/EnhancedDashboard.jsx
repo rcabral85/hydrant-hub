@@ -13,7 +13,7 @@ import {
 import { 
   Add, PictureAsPdf, Warning, CheckCircle, Schedule, Build, 
   TrendingUp, Assessment, Notifications, FilterList, Refresh,
-  LocationOn, OpacityIcon as Water, PlayArrow, Settings
+  LocationOn, WaterDrop as Water, PlayArrow, Settings
 } from '@mui/icons-material';
 import api from '../services/api';
 import dayjs from 'dayjs';
@@ -701,7 +701,7 @@ export default function EnhancedDashboard() {
       </Card>
 
       {/* Quick Action Dialog */}
-      <Dialog open={quickActionDialog} onHide={() => setQuickActionDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={quickActionDialog} onClose={() => setQuickActionDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Quick Action</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
