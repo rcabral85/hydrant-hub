@@ -10,13 +10,12 @@ import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import Login from './components/Login';
 import EnhancedDashboard from './components/EnhancedDashboard';
-import HydrantMap from './components/HydrantMap';
+import HydrantMapEnhanced from './components/HydrantMapEnhanced';
 import FlowTestForm from './components/FlowTestForm';
 import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
-import MaintenanceInspection from './components/MaintenanceInspection';
-import WorkOrderManagement from './components/WorkOrderManagement';
-import MobileInspection from './components/MobileInspection';
+import HydrantAdd from './components/HydrantAdd';
+import MobileInspectionMUI from './components/MobileInspectionMUI';
 import './App.css';
 
 const theme = createTheme({
@@ -54,6 +53,13 @@ const theme = createTheme({
           fontWeight: 600
         }
       }
+    },
+    MuiFab: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        }
+      }
     }
   }
 });
@@ -66,13 +72,15 @@ function TitleUpdater() {
     const routeTitles = {
       '/login': 'Login',
       '/dashboard': 'Dashboard',
-      '/map': 'Hydrant Map',
+      '/map': 'Interactive Hydrant Map',
       '/maintenance': 'Maintenance Management',
       '/maintenance/inspect': 'Maintenance Inspection',
       '/maintenance/work-orders': 'Work Order Management',
       '/maintenance/mobile': 'Mobile Inspection',
       '/flow-test': 'Flow Test Form',
-      '/reports': 'Reports & Analytics'
+      '/reports': 'Reports & Analytics',
+      '/hydrants/new': 'Add New Hydrant',
+      '/hydrants/edit': 'Edit Hydrant'
     };
     
     const currentTitle = Object.keys(routeTitles).find(route => 
@@ -123,16 +131,18 @@ function AppRoutes() {
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><EnhancedDashboard /></ProtectedRoute>} />
-      <Route path="/map" element={<ProtectedRoute><HydrantMap /></ProtectedRoute>} />
+      <Route path="/map" element={<ProtectedRoute><HydrantMapEnhanced /></ProtectedRoute>} />
       <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       
+      {/* Hydrant Management Routes */}
+      <Route path="/hydrants/new" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
+      <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
+      
       {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
-      <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MaintenanceInspection /></ProtectedRoute>} />
-      <Route path="/maintenance/inspect/:hydrantId/:inspectionId" element={<ProtectedRoute><MaintenanceInspection /></ProtectedRoute>} />
-      <Route path="/maintenance/work-orders" element={<ProtectedRoute><WorkOrderManagement /></ProtectedRoute>} />
-      <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
+      <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
+      <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       
       {/* Reports Routes */}
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
