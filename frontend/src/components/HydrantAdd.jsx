@@ -10,7 +10,7 @@ import {
   Autocomplete, InputAdornment, IconButton
 } from '@mui/material';
 import {
-  Save, Cancel, LocationOn, Map as MapIcon, GPS, Business,
+  Save, Cancel, LocationOn, Map as MapIcon, MyLocation, Business,
   DateRange, Build, Straighten, Opacity
 } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -300,7 +300,7 @@ export default function HydrantAdd() {
                   </Button>
                 </Stack>
 
-                <FormControl fullWidth error={!!errors.manufacturer}>
+                <FormControl fullWidth error={!!errors.manufacturer}}>
                   <InputLabel>Manufacturer *</InputLabel>
                   <Select
                     value={hydrantData.manufacturer}
@@ -394,7 +394,7 @@ export default function HydrantAdd() {
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <GPS />
+                            <MyLocation />
                           </InputAdornment>
                         )
                       }}
