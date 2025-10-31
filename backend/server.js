@@ -48,6 +48,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
+app.use('/api/tests', flowTestRoutes); // Alias for flow-tests to match documentation
 app.use('/api/hydrants', hydrantRoutes);
 
 // Root endpoint
@@ -61,6 +62,7 @@ app.get('/', (req, res) => {
       health: '/api/health',
       auth: '/api/auth',
       hydrants: '/api/hydrants',
+      tests: '/api/tests',
       flow_tests: '/api/flow-tests',
       admin: '/api/admin'
     },
@@ -78,6 +80,7 @@ app.get('/api', (req, res) => {
       '/api/health': 'Health check and system status',
       '/api/auth': 'Authentication and user management',
       '/api/hydrants': 'Hydrant inventory and management',
+      '/api/tests': 'Flow test data and NFPA 291 calculations (alias)',
       '/api/flow-tests': 'Flow test data and NFPA 291 calculations',
       '/api/admin': 'Administrative functions'
     }
@@ -126,6 +129,7 @@ app.use('*', (req, res) => {
       'GET /api/debug/schema',
       'POST /api/auth/login',
       'GET /api/hydrants',
+      'GET /api/tests',
       'GET /api/flow-tests'
     ]
   });
