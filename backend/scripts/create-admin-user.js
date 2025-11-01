@@ -33,24 +33,20 @@ async function createAdminUser() {
     const client = await pool.connect();
     console.log('✅ Database connected');
     
-    // Create default organization if it doesn't exist
+    // Create default organization if it doesn't exist (matching schema column names)
     const orgId = uuidv4();
     const orgResult = await client.query(`
-      INSERT INTO organizations (id, name, type, contact_email, phone, address, city, province, postal_code, country)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO organizations (id, name, type, contact_email, contact_phone, address)
+      VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
       RETURNING id, name
     `, [
       orgId,
       'Trident Systems',
-      'CONTRACTOR',
+      'contractor',
       'admin@tridentsys.ca',
       '(416) 555-0123',
-      '123 Water Street',
-      'Milton',
-      'ON',
-      'L9T 0A1',
-      'Canada'
+      '123 Water Street, Milton, ON'
     ]);
     
     const organization = orgResult.rows[0];
@@ -60,7 +56,7 @@ async function createAdminUser() {
     const adminPassword = 'TridentAdmin2025!';
     const passwordHash = await bcrypt.hash(adminPassword, 12);
     
-    // Create admin user
+    // Create admin user (matching schema column names)
     const adminResult = await client.query(`
       INSERT INTO users (
         organization_id, username, email, password_hash,
@@ -132,10 +128,9 @@ async function createAdminUser() {
     // Check if it's a table missing error
     if (error.message.includes('relation') && error.message.includes('does not exist')) {
       console.log('\n💡 It looks like your database tables haven\'t been created yet.');
-      console.log('   Run the database schema setup first:');
-      console.log('   1. Create your database: createdb hydrantdb');
-      console.log('   2. Run schema: psql -d hydrantdb -f database/schema.sql');
-      console.log('   3. Then run this script again');
+      console.log('   First, apply the database schema:');
+      console.log('   node scripts/railway-migration.js');
+      console.log('   Then run this script again.');
     }
     
     process.exit(1);
