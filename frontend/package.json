@@ -1,6 +1,6 @@
 {
   "name": "hydranthub-frontend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "HydrantHub web client for fire hydrant flow testing & management.",
   "private": true,
   "scripts": {
