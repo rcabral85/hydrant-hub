@@ -67,20 +67,20 @@ router.get('/', async (req, res, next) => {
         mi.inspection_date as last_inspection_date,
         mi.overall_status as last_inspection_status,
         (
-          SELECT COUNT(*) FROM flow_tests ft2 WHERE ft2.hydrant_id = h.id
+          SELECT COUNT(*) FROM flow_tests ft2 WHERE (ft2.hydrant_id)::uuid = h.id
         ) as test_count
       FROM hydrants h
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id) 
-          hydrant_id, total_flow_gpm, test_date
+        SELECT DISTINCT ON ((hydrant_id)::uuid) 
+          (hydrant_id)::uuid AS hydrant_id, total_flow_gpm, test_date
         FROM flow_tests 
-        ORDER BY hydrant_id, test_date DESC
+        ORDER BY (hydrant_id)::uuid, test_date DESC
       ) ft ON h.id = ft.hydrant_id
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id)
-          hydrant_id, inspection_date, overall_status
+        SELECT DISTINCT ON ((hydrant_id)::uuid)
+          (hydrant_id)::uuid AS hydrant_id, inspection_date, overall_status
         FROM maintenance_inspections
-        ORDER BY hydrant_id, inspection_date DESC
+        ORDER BY (hydrant_id)::uuid, inspection_date DESC
       ) mi ON h.id = mi.hydrant_id
       WHERE 1=1
     `;
@@ -196,16 +196,16 @@ router.get('/map/geojson', async (req, res, next) => {
         mi.inspection_date as last_inspection_date
       FROM hydrants h
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id) 
-          hydrant_id, total_flow_gpm, static_pressure_psi, test_date
+        SELECT DISTINCT ON ((hydrant_id)::uuid) 
+          (hydrant_id)::uuid AS hydrant_id, total_flow_gpm, static_pressure_psi, test_date
         FROM flow_tests 
-        ORDER BY hydrant_id, test_date DESC
+        ORDER BY (hydrant_id)::uuid, test_date DESC
       ) ft ON h.id = ft.hydrant_id
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id)
-          hydrant_id, inspection_date
+        SELECT DISTINCT ON ((hydrant_id)::uuid)
+          (hydrant_id)::uuid AS hydrant_id, inspection_date
         FROM maintenance_inspections
-        ORDER BY hydrant_id, inspection_date DESC
+        ORDER BY (hydrant_id)::uuid, inspection_date DESC
       ) mi ON h.id = mi.hydrant_id
       WHERE h.latitude IS NOT NULL AND h.longitude IS NOT NULL
     `;
@@ -288,23 +288,23 @@ router.get('/:id', async (req, res, next) => {
         mi.inspection_date as last_inspection_date,
         mi.overall_status as last_inspection_status,
         (
-          SELECT COUNT(*) FROM flow_tests ft2 WHERE ft2.hydrant_id = h.id
+          SELECT COUNT(*) FROM flow_tests ft2 WHERE (ft2.hydrant_id)::uuid = h.id
         ) as test_count,
         (
-          SELECT COUNT(*) FROM maintenance_inspections mi2 WHERE mi2.hydrant_id = h.id
+          SELECT COUNT(*) FROM maintenance_inspections mi2 WHERE (mi2.hydrant_id)::uuid = h.id
         ) as inspection_count
       FROM hydrants h
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id) 
-          hydrant_id, total_flow_gpm, test_date
+        SELECT DISTINCT ON ((hydrant_id)::uuid) 
+          (hydrant_id)::uuid AS hydrant_id, total_flow_gpm, test_date
         FROM flow_tests 
-        ORDER BY hydrant_id, test_date DESC
+        ORDER BY (hydrant_id)::uuid, test_date DESC
       ) ft ON h.id = ft.hydrant_id
       LEFT JOIN (
-        SELECT DISTINCT ON (hydrant_id)
-          hydrant_id, inspection_date, overall_status
+        SELECT DISTINCT ON ((hydrant_id)::uuid)
+          (hydrant_id)::uuid AS hydrant_id, inspection_date, overall_status
         FROM maintenance_inspections
-        ORDER BY hydrant_id, inspection_date DESC
+        ORDER BY (hydrant_id)::uuid, inspection_date DESC
       ) mi ON h.id = mi.hydrant_id
       WHERE h.id = $1
     `;
@@ -590,7 +590,7 @@ router.get('/:id/history', async (req, res, next) => {
         ft.static_pressure_psi,
         ft.operator_name as performed_by
       FROM flow_tests ft
-      WHERE ft.hydrant_id = $1
+      WHERE (ft.hydrant_id)::uuid = $1
       ORDER BY ft.test_date DESC
       LIMIT $2 OFFSET $3
     `, [id, parseInt(limit), parseInt(offset)]);
@@ -606,7 +606,7 @@ router.get('/:id/history', async (req, res, next) => {
         mi.overall_status,
         mi.inspector_name as performed_by
       FROM maintenance_inspections mi
-      WHERE mi.hydrant_id = $1
+      WHERE (mi.hydrant_id)::uuid = $1
       ORDER BY mi.inspection_date DESC
       LIMIT $2 OFFSET $3
     `, [id, parseInt(limit), parseInt(offset)]);
