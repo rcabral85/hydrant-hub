@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Box, CircularProgress } from '@mui/material';
@@ -6,7 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import Header from './components/Header';
+import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import Login from './components/Login';
 import EnhancedDashboard from './components/EnhancedDashboard';
@@ -16,12 +16,6 @@ import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
 import HydrantAdd from './components/HydrantAdd';
 import MobileInspectionMUI from './components/MobileInspectionMUI';
-import HydrantHubPage from './pages/HydrantHubPage';
-import FeaturesPage from './pages/FeaturesPage';
-import PricingPage from './pages/PricingPage';
-import ServicesPage from './pages/ServicesPage';
-import FireFlowTestingPage from './pages/FireFlowTestingPage';
-import ContactPage from './pages/ContactPage';
 import './App.css';
 
 const theme = createTheme({
@@ -42,99 +36,149 @@ const theme = createTheme({
   },
   shape: { borderRadius: 8 },
   components: {
-    MuiCard: { styleOverrides: { root: { boxShadow: '0 2px 8px rgba(0,0,0,0.1)', '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.15)' } } } },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }
+        }
+      }
+    },
     MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
     MuiFab: { styleOverrides: { root: { boxShadow: '0 4px 12px rgba(0,0,0,0.3)' } } }
   }
 });
 
+// SEO Title Updates
 function TitleUpdater() {
   const location = useLocation();
-  React.useEffect(() => {
+  
+  useEffect(() => {
     const routeTitles = {
       '/login': 'Login',
       '/dashboard': 'Dashboard',
       '/map': 'Interactive Hydrant Map',
       '/maintenance': 'Maintenance Management',
+      '/maintenance/inspect': 'Maintenance Inspection',
+      '/maintenance/work-orders': 'Work Order Management',
+      '/maintenance/mobile': 'Mobile Inspection',
       '/flow-test': 'Flow Test Form',
       '/reports': 'Reports & Analytics',
       '/hydrants/new': 'Add New Hydrant',
-      '/hydranthub': 'HydrantHub',
-      '/features': 'Features',
-      '/pricing': 'Pricing',
-      '/services': 'Services',
-      '/services/fire-flow-testing': 'Fire Flow Testing',
-      '/contact': 'Contact'
+      '/hydrants/edit': 'Edit Hydrant'
     };
-    const hit = Object.keys(routeTitles).find(route => location.pathname.startsWith(route));
-    const currentTitle = hit ? routeTitles[hit] : 'HydrantHub';
-    document.title = `${currentTitle} - HydrantHub | Trident Systems`;
+    
+    const currentTitle = Object.keys(routeTitles).find(route => 
+      location.pathname.startsWith(route)
+    ) ? routeTitles[Object.keys(routeTitles).find(route => 
+      location.pathname.startsWith(route)
+    )] : 'Dashboard';
+    
+    if (window.updatePageTitle) {
+      window.updatePageTitle(currentTitle);
+    } else {
+      document.title = `${currentTitle} - HydrantHub | Trident Systems`;
+    }
   }, [location.pathname]);
+  
   return null;
 }
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return (<Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh"><CircularProgress size={60} /></Box>);
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return (<Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh"><CircularProgress size={60} /></Box>);
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
   return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public marketing routes */}
-      <Route path="/hydranthub" element={<HydrantHubPage />} />
-      <Route path="/features" element={<FeaturesPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/services" element={<ServicesPage />} />
-      <Route path="/services/fire-flow-testing" element={<FireFlowTestingPage />} />
-      <Route path="/contact" element={<ContactPage />} />
-
-      {/* Public auth route */}
+      {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-
-      {/* App routes (protected) */}
+      
+      {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><EnhancedDashboard /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><HydrantMapEnhanced /></ProtectedRoute>} />
       <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
+      
+      {/* Hydrant Management Routes */}
       <Route path="/hydrants/new" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
+      
+      {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
       <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
+      
+      {/* Reports Routes */}
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-
-      {/* Default routes */}
-      <Route path="/" element={<Navigate to="/hydranthub" replace />} />
-      <Route path="*" element={<Navigate to="/hydranthub" replace />} />
+      
+      {/* Default Routes */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      
+      {/* 404 Catch-all - Redirect to dashboard if authenticated, login if not */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
 
-export default function App() {
+function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
         <Router>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            minHeight: '100vh' 
+          }}>
             <TitleUpdater />
-            <Header />
+            <Navigation />
+            
             <Box component="main" sx={{ flexGrow: 1 }}>
               <AppRoutes />
             </Box>
+            
             <Footer />
-            <ToastContainer position="top-right" autoClose={5000} theme="light" />
+            
+            <ToastContainer 
+              position="top-right" 
+              autoClose={5000} 
+              hideProgressBar={false} 
+              newestOnTop={false} 
+              closeOnClick 
+              rtl={false} 
+              pauseOnFocusLoss 
+              draggable 
+              pauseOnHover 
+              theme="light" 
+              toastStyle={{ fontFamily: theme.typography.fontFamily }} 
+            />
           </Box>
         </Router>
       </AuthProvider>
     </ThemeProvider>
   );
 }
+
+export default App;
