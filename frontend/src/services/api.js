@@ -1,8 +1,21 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-});
+const RAW = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || window.location.origin;
+
+const BASE = (() => {
+  try {
+    const u = new URL(RAW, window.location.origin);
+    if (!u.pathname.replace(/\/+$/, '').endsWith('/api')) {
+      u.pathname = `${u.pathname.replace(/\/+$/, '')}/api`;
+    }
+    return u.toString().replace(/\/+$/, '');
+  } catch {
+    const s = (RAW || '').replace(/\/+$/, '');
+    return s.endsWith('/api') ? s : `${s}/api`;
+  }
+})();
+
+const api = axios.create({ baseURL: BASE });
 
 export const listHydrants = async ({ q = '', nfpa_class = '', status = '', page = 1, limit = 100 } = {}) => {
   const params = {};
