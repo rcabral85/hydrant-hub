@@ -1,0 +1,44 @@
+<!-- Mobile Navigation Integration Example -->
+<!-- Add this HTML snippet to your main app layout where you want the mobile menu to appear -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Include mobile navigation CSS -->
+    <link rel="stylesheet" href="src/styles/mobile-nav.css">
+    
+    <!-- Your existing head content -->
+    <style>
+        /* Example: Hide existing desktop navigation on mobile */
+        @media (max-width: 768px) {
+            .desktop-nav, .existing-nav {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Your existing app content -->
+    <header>
+        <!-- Your existing header content -->
+        
+        <!-- Mobile nav will be automatically injected here by the JavaScript -->
+    </header>
+    
+    <!-- Rest of your app -->
+    <main>
+        <!-- Your app content -->
+    </main>
+    
+    <!-- Include mobile navigation JavaScript before closing body -->
+    <script src="src/js/mobile-nav.js"></script>
+</body>
+</html>
+
+<!-- 
+The JavaScript will automatically:
+1. Create the hamburger icon
+2. Add the mobile menu
+3. Handle all click/touch interactions
+4. Make it responsive (shows only on mobile screens)
+-->
