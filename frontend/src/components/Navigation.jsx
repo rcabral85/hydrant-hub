@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Avatar } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
@@ -24,10 +24,18 @@ export default function Navigation() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const onLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleMobileMenuToggle = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+    // Trigger the mobile navigation JavaScript
+    const event = new CustomEvent('mobile-nav-toggle');
+    document.dispatchEvent(event);
   };
 
   const path = location.pathname;
@@ -38,7 +46,13 @@ export default function Navigation() {
     <AppBar position="static" color="primary" elevation={2}>
       <Toolbar>
         {isMobile && (
-          <IconButton edge="start" color="inherit" sx={{ mr: 1 }}>
+          <IconButton 
+            edge="start" 
+            color="inherit" 
+            sx={{ mr: 1 }}
+            onClick={handleMobileMenuToggle}
+            aria-label="Open navigation menu"
+          >
             <MenuIcon />
           </IconButton>
         )}
