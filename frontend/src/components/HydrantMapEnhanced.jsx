@@ -16,13 +16,14 @@ import dayjs from 'dayjs';
 import FlowTestQuickModal from './FlowTestQuickModal';
 import MaintenanceQuickModal from './MaintenanceQuickModal';
 
+// NFPA 291 Colors according to user specifications
 const NFPA_COLORS = {
-  AA: '#7e22ce', // purple - excellent
-  A: '#16a34a',  // green - good
-  B: '#f59e0b',  // orange - adequate  
-  C: '#ef4444',  // red - poor
-  OUT_OF_SERVICE: '#6b7280', // gray
-  MAINTENANCE_REQUIRED: '#dc2626' // red
+  AA: '#0000FF',    // Blue - Class AA (1500+ GPM) - Excellent 
+  A: '#00FF00',     // Green - Class A (1000-1499 GPM) - Good
+  B: '#FFA500',     // Orange - Class B (500-999 GPM) - Adequate  
+  C: '#FF0000',     // Red - Class C (<500 GPM) - Poor
+  OUT_OF_SERVICE: '#6b7280', // Gray
+  MAINTENANCE_REQUIRED: '#dc2626' // Red
 };
 
 const DEFAULT_CENTER = [
@@ -35,14 +36,14 @@ const DEFAULT_ZOOM = parseInt(import.meta.env.VITE_DEFAULT_MAP_ZOOM || '12', 10)
 function Legend() {
   return (
     <Paper elevation={3} sx={{ position: 'absolute', top: 80, right: 16, p: 2, zIndex: 1000 }}>
-      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA Classes</Typography>
+      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA 291 Classifications</Typography>
       <Stack direction="column" spacing={1}>
         {[
-          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Excellent' },
-          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Good' },
-          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Adequate' },
-          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Poor' },
-          { key: 'OUT_OF_SERVICE', label: 'Out of Service', desc: 'Inactive' }
+          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Blue - Excellent' },
+          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Green - Good' },
+          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Orange - Adequate' },
+          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Red - Poor' },
+          { key: 'OUT_OF_SERVICE', label: 'Out of Service', desc: 'Gray - Inactive' }
         ].map(item => (
           <Stack key={item.key} direction="row" spacing={1} alignItems="center">
             <Box 
@@ -87,6 +88,14 @@ function TabPanel({ children, value, index }) {
   );
 }
 
+// Function to determine NFPA class based on flow rate
+function getNFPAClass(flowRateGPM) {
+  if (!flowRateGPM || flowRateGPM < 500) return 'C';
+  if (flowRateGPM >= 1500) return 'AA';
+  if (flowRateGPM >= 1000) return 'A';
+  return 'B';
+}
+
 export default function HydrantMapEnhanced() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -126,29 +135,34 @@ export default function HydrantMapEnhanced() {
         
         const geojson = {
           type: 'FeatureCollection',
-          features: hydrants.map(hydrant => ({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [hydrant.longitude || -79.8774, hydrant.latitude || 43.5182]
-            },
-            properties: {
-              id: hydrant.id,
-              hydrant_number: hydrant.hydrant_number,
-              address: hydrant.address || hydrant.location_address,
-              location_address: hydrant.location_address,
-              nfpa_class: hydrant.nfpa_class || hydrant.nfpa_classification,
-              operational_status: hydrant.operational_status || hydrant.status,
-              flow_rate_gpm: hydrant.flow_rate_gpm,
-              static_pressure_psi: hydrant.static_pressure_psi,
-              manufacturer: hydrant.manufacturer,
-              model: hydrant.model,
-              watermain_size_mm: hydrant.watermain_size_mm,
-              installation_date: hydrant.installation_date,
-              last_flow_test_date: hydrant.last_flow_test_date,
-              last_inspection_date: hydrant.last_inspection_date
-            }
-          }))
+          features: hydrants.map(hydrant => {
+            // Calculate NFPA class based on flow rate if not already set
+            const nfpaClass = hydrant.nfpa_class || hydrant.nfpa_classification || getNFPAClass(hydrant.flow_rate_gpm);
+            
+            return {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: [hydrant.longitude || -79.8774, hydrant.latitude || 43.5182]
+              },
+              properties: {
+                id: hydrant.id,
+                hydrant_number: hydrant.hydrant_number,
+                address: hydrant.address || hydrant.location_address,
+                location_address: hydrant.location_address,
+                nfpa_class: nfpaClass,
+                operational_status: hydrant.operational_status || hydrant.status,
+                flow_rate_gpm: hydrant.flow_rate_gpm,
+                static_pressure_psi: hydrant.static_pressure_psi,
+                manufacturer: hydrant.manufacturer,
+                model: hydrant.model,
+                watermain_size_mm: hydrant.watermain_size_mm,
+                installation_date: hydrant.installation_date,
+                last_flow_test_date: hydrant.last_flow_test_date,
+                last_inspection_date: hydrant.last_inspection_date
+              }
+            };
+          })
         };
         
         setGeo(geojson);
@@ -237,6 +251,16 @@ export default function HydrantMapEnhanced() {
     return colors[status] || 'default';
   };
 
+  const getNFPAChipColor = (nfpaClass) => {
+    const colors = {
+      'AA': 'primary',  // Blue
+      'A': 'success',   // Green  
+      'B': 'warning',   // Orange
+      'C': 'error'      // Red
+    };
+    return colors[nfpaClass] || 'default';
+  };
+
   const features = useMemo(() => geo?.features || [], [geo]);
 
   return (
@@ -272,7 +296,14 @@ export default function HydrantMapEnhanced() {
         {features.map((f) => {
           if (!f?.geometry?.coordinates) return null;
           const [lon, lat] = f.geometry.coordinates;
-          const cls = f.properties?.nfpa_class || f.properties?.nfpa_classification || 'C';
+          
+          // Determine NFPA class - use flow rate if class not set
+          let cls = f.properties?.nfpa_class || f.properties?.nfpa_classification;
+          if (!cls && f.properties?.flow_rate_gpm) {
+            cls = getNFPAClass(f.properties.flow_rate_gpm);
+          }
+          cls = cls || 'C'; // Default to Class C if unknown
+          
           const status = f.properties?.operational_status || f.properties?.status || 'OPERATIONAL';
           
           // Choose color based on status first, then NFPA class
@@ -304,10 +335,16 @@ export default function HydrantMapEnhanced() {
                   <Typography variant="body2" color="text.secondary">
                     {f.properties.address || f.properties.location_address || 'No address'}
                   </Typography>
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Chip size="small" label={`Class ${cls}`} color="primary" />
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap>
+                    <Chip size="small" label={`Class ${cls}`} color={getNFPAChipColor(cls)} />
                     <Chip size="small" label={status} color={getStatusColor(status)} />
                   </Stack>
+                  
+                  {f.properties.flow_rate_gpm && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                      Flow Rate: {f.properties.flow_rate_gpm} GPM
+                    </Typography>
+                  )}
                   
                   <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                     <Button size="small" onClick={() => handleMarkerClick(f)}>
@@ -412,7 +449,7 @@ export default function HydrantMapEnhanced() {
             <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap>
               <Chip 
                 label={`Class ${selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification || 'TBD'}`}
-                color="primary"
+                color={getNFPAChipColor(selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification)}
               />
               <Chip 
                 label={selectedHydrant.properties.operational_status || selectedHydrant.properties.status || 'Operational'}
@@ -537,7 +574,7 @@ export default function HydrantMapEnhanced() {
                               <Chip 
                                 label={test.nfpa_class || test.nfpa_classification}
                                 size="small"
-                                color="primary"
+                                color={getNFPAChipColor(test.nfpa_class || test.nfpa_classification)}
                               />
                             </TableCell>
                             <TableCell>{test.static_pressure_psi} PSI</TableCell>
