@@ -33,6 +33,8 @@ export default function MaintenancePage() {
   const [currentTab, setCurrentTab] = useState(0);
   const [hydrants, setHydrants] = useState([]);
   const [error, setError] = useState(null);
+  const [newInspectionDialog, setNewInspectionDialog] = useState(false);
+  const [selectedHydrant, setSelectedHydrant] = useState('');
   
   // Sample maintenance data - in production this would come from your maintenance API
   const [maintenanceData] = useState({
@@ -195,6 +197,22 @@ export default function MaintenancePage() {
     navigate(`/maintenance/inspect/${hydrant.hydrant_number}`);
   };
 
+  const handleNewInspection = () => {
+    setNewInspectionDialog(true);
+  };
+
+  const createNewInspection = () => {
+    if (selectedHydrant) {
+      // Find the hydrant by ID to get the hydrant_number
+      const hydrant = hydrants.find(h => h.id === selectedHydrant);
+      if (hydrant) {
+        navigate(`/maintenance/inspect/${hydrant.hydrant_number}`);
+      }
+      setNewInspectionDialog(false);
+      setSelectedHydrant('');
+    }
+  };
+
   const generateReport = () => {
     // Generate maintenance compliance report
     console.log('Generating maintenance compliance report...');
@@ -219,7 +237,7 @@ export default function MaintenancePage() {
           <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={generateReport}>
             Export Report
           </Button>
-          <Button variant="contained" startIcon={<Add />}>
+          <Button variant="contained" startIcon={<Add />} onClick={handleNewInspection}>
             New Inspection
           </Button>
         </Stack>
@@ -674,6 +692,39 @@ export default function MaintenancePage() {
           </Grid>
         </TabPanel>
       </Card>
+
+      {/* New Inspection Dialog */}
+      <Dialog open={newInspectionDialog} onClose={() => setNewInspectionDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Start New Inspection</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Select Hydrant</InputLabel>
+              <Select
+                value={selectedHydrant}
+                onChange={(e) => setSelectedHydrant(e.target.value)}
+                label="Select Hydrant"
+              >
+                {hydrants.map((hydrant) => (
+                  <MenuItem key={hydrant.id} value={hydrant.id}>
+                    {hydrant.hydrant_number} - {hydrant.address || hydrant.location_address || 'No address'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewInspectionDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={createNewInspection} 
+            variant="contained" 
+            disabled={!selectedHydrant}
+          >
+            Start Inspection
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
