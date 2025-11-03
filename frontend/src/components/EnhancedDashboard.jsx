@@ -442,34 +442,34 @@ export default function EnhancedDashboard() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                NFPA Classification Distribution
+                NFPA 291 Classification Distribution
               </Typography>
               <Stack spacing={2}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box sx={{ width: 16, height: 16, backgroundColor: '#4caf50', borderRadius: '50%' }} />
-                    <Typography variant="body2">Class AA (Excellent)</Typography>
+                    <Box sx={{ width: 16, height: 16, backgroundColor: '#0000FF', borderRadius: '50%' }} />
+                    <Typography variant="body2">Class AA (1500+ GPM)</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>45 hydrants</Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box sx={{ width: 16, height: 16, backgroundColor: '#8bc34a', borderRadius: '50%' }} />
-                    <Typography variant="body2">Class A (Good)</Typography>
+                    <Box sx={{ width: 16, height: 16, backgroundColor: '#00FF00', borderRadius: '50%' }} />
+                    <Typography variant="body2">Class A (1000-1499 GPM)</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>15 hydrants</Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box sx={{ width: 16, height: 16, backgroundColor: '#ffeb3b', borderRadius: '50%' }} />
-                    <Typography variant="body2">Class B (Fair)</Typography>
+                    <Box sx={{ width: 16, height: 16, backgroundColor: '#FFA500', borderRadius: '50%' }} />
+                    <Typography variant="body2">Class B (500-999 GPM)</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>2 hydrants</Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box sx={{ width: 16, height: 16, backgroundColor: '#ff5722', borderRadius: '50%' }} />
-                    <Typography variant="body2">Class C (Poor)</Typography>
+                    <Box sx={{ width: 16, height: 16, backgroundColor: '#FF0000', borderRadius: '50%' }} />
+                    <Typography variant="body2">Class C (<500 GPM)</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>0 hydrants</Typography>
                 </Stack>
