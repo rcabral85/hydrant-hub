@@ -4,11 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import {
   Box, Paper, Typography, Chip, Stack, Alert, Drawer, Card, CardContent,
   Button, Fab, IconButton, Tabs, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Badge, Divider, Tooltip
+  TableContainer, TableHead, TableRow, Badge, Divider, Tooltip, useMediaQuery
 } from '@mui/material';
 import {
-  Add, Close, Edit, Timeline, Build, LocationOn, Refresh,
-  PlayArrow, Assessment, CheckCircle, Warning
+  Add, Close, Edit, Timeline, Build, LocationOn, Refresh
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -16,14 +15,14 @@ import dayjs from 'dayjs';
 import FlowTestQuickModal from './FlowTestQuickModal';
 import MaintenanceQuickModal from './MaintenanceQuickModal';
 
-// NFPA 291 Colors according to user specifications
+// NFPA 291 Colors
 const NFPA_COLORS = {
-  AA: '#0000FF',    // Blue - Class AA (1500+ GPM) - Excellent 
-  A: '#00FF00',     // Green - Class A (1000-1499 GPM) - Good
-  B: '#FFA500',     // Orange - Class B (500-999 GPM) - Adequate  
-  C: '#FF0000',     // Red - Class C (<500 GPM) - Poor
-  OUT_OF_SERVICE: '#6b7280', // Gray
-  MAINTENANCE_REQUIRED: '#dc2626' // Red
+  AA: '#0000FF',
+  A: '#00FF00',
+  B: '#FFA500',
+  C: '#FF0000',
+  OUT_OF_SERVICE: '#6b7280',
+  MAINTENANCE_REQUIRED: '#dc2626'
 };
 
 const DEFAULT_CENTER = [
@@ -33,34 +32,20 @@ const DEFAULT_CENTER = [
 
 const DEFAULT_ZOOM = parseInt(import.meta.env.VITE_DEFAULT_MAP_ZOOM || '12', 10);
 
-function Legend() {
+function Legend({ isMobile }) {
   return (
-    <Paper elevation={3} sx={{ position: 'absolute', top: 80, right: 16, p: 2, zIndex: 1000 }}>
+    <Paper elevation={3} sx={{ position: 'absolute', top: isMobile ? 70 : 80, right: 16, p: 2, zIndex: 1000 }}>
       <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA 291 Classifications</Typography>
       <Stack direction="column" spacing={1}>
         {[
-          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Blue - Excellent' },
-          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Green - Good' },
-          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Orange - Adequate' },
-          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Red - Poor' },
-          { key: 'OUT_OF_SERVICE', label: 'Out of Service', desc: 'Gray - Inactive' }
+          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Blue' },
+          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Green' },
+          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Orange' },
+          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Red' },
         ].map(item => (
           <Stack key={item.key} direction="row" spacing={1} alignItems="center">
-            <Box 
-              sx={{ 
-                width: 16, 
-                height: 16, 
-                backgroundColor: NFPA_COLORS[item.key], 
-                borderRadius: '50%',
-                border: '1px solid rgba(0,0,0,0.2)'
-              }} 
-            />
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 500 }}>{item.label}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {item.desc}
-              </Typography>
-            </Box>
+            <Box sx={{ width: 16, height: 16, backgroundColor: NFPA_COLORS[item.key], borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)' }} />
+            <Typography variant="caption" sx={{ fontWeight: 500 }}>{item.label}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -68,14 +53,9 @@ function Legend() {
   );
 }
 
-// Component for handling map clicks in add mode
 function MapClickHandler({ addMode, onLocationSelect }) {
   useMapEvents({
-    click: (e) => {
-      if (addMode) {
-        onLocationSelect(e.latlng.lat, e.latlng.lng);
-      }
-    }
+    click: (e) => { if (addMode) onLocationSelect(e.latlng.lat, e.latlng.lng); }
   });
   return null;
 }
@@ -88,7 +68,6 @@ function TabPanel({ children, value, index }) {
   );
 }
 
-// Function to determine NFPA class based on flow rate
 function getNFPAClass(flowRateGPM) {
   if (!flowRateGPM || flowRateGPM < 500) return 'C';
   if (flowRateGPM >= 1500) return 'AA';
@@ -99,6 +78,8 @@ function getNFPAClass(flowRateGPM) {
 export default function HydrantMapEnhanced() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery('(max-width:600px)');
+
   const [geo, setGeo] = useState(null);
   const [error, setError] = useState(null);
   const [selectedHydrant, setSelectedHydrant] = useState(null);
@@ -113,13 +94,7 @@ export default function HydrantMapEnhanced() {
 
   useEffect(() => {
     loadMapData();
-    
-    // Check for success message from Add Hydrant
-    if (location.state?.message) {
-      setTimeout(() => {
-        alert(location.state.message);
-      }, 1000);
-    }
+    if (location.state?.message) setTimeout(() => alert(location.state.message), 1000);
   }, [location.state]);
 
   const loadMapData = async () => {
@@ -127,46 +102,34 @@ export default function HydrantMapEnhanced() {
       const res = await api.get('/hydrants/map/geojson');
       setGeo(res.data.geojson);
     } catch (e) {
-      console.log('GeoJSON not available, loading regular hydrant data');
       try {
-        // Fallback to regular hydrant data and convert to GeoJSON format
         const hydrantRes = await api.get('/hydrants');
         const hydrants = hydrantRes.data.hydrants || [];
-        
         const geojson = {
           type: 'FeatureCollection',
-          features: hydrants.map(hydrant => {
-            // Calculate NFPA class based on flow rate if not already set
-            const nfpaClass = hydrant.nfpa_class || hydrant.nfpa_classification || getNFPAClass(hydrant.flow_rate_gpm);
-            
-            return {
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: [hydrant.longitude || -79.8774, hydrant.latitude || 43.5182]
-              },
-              properties: {
-                id: hydrant.id,
-                hydrant_number: hydrant.hydrant_number,
-                address: hydrant.address || hydrant.location_address,
-                location_address: hydrant.location_address,
-                nfpa_class: nfpaClass,
-                operational_status: hydrant.operational_status || hydrant.status,
-                flow_rate_gpm: hydrant.flow_rate_gpm,
-                static_pressure_psi: hydrant.static_pressure_psi,
-                manufacturer: hydrant.manufacturer,
-                model: hydrant.model,
-                watermain_size_mm: hydrant.watermain_size_mm,
-                installation_date: hydrant.installation_date,
-                last_flow_test_date: hydrant.last_flow_test_date,
-                last_inspection_date: hydrant.last_inspection_date
-              }
-            };
-          })
+          features: hydrants.map(hydrant => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [hydrant.longitude || -79.8774, hydrant.latitude || 43.5182] },
+            properties: {
+              id: hydrant.id,
+              hydrant_number: hydrant.hydrant_number,
+              address: hydrant.address || hydrant.location_address,
+              location_address: hydrant.location_address,
+              nfpa_class: hydrant.nfpa_class || hydrant.nfpa_classification || getNFPAClass(hydrant.flow_rate_gpm),
+              operational_status: hydrant.operational_status || hydrant.status,
+              flow_rate_gpm: hydrant.flow_rate_gpm,
+              static_pressure_psi: hydrant.static_pressure_psi,
+              manufacturer: hydrant.manufacturer,
+              model: hydrant.model,
+              watermain_size_mm: hydrant.watermain_size_mm,
+              installation_date: hydrant.installation_date,
+              last_flow_test_date: hydrant.last_flow_test_date,
+              last_inspection_date: hydrant.last_inspection_date
+            }
+          }))
         };
-        
         setGeo(geojson);
-      } catch (fallbackError) {
+      } catch {
         setError('Unable to load hydrant data');
       }
     }
@@ -174,47 +137,21 @@ export default function HydrantMapEnhanced() {
 
   const loadHydrantDetails = async (hydrantId) => {
     try {
-      // Load hydrant details
       const hydrantRes = await api.get(`/hydrants/${hydrantId}`);
       setHydrantDetails(hydrantRes.data.hydrant);
-      
-      // Load recent flow tests
       try {
         const flowRes = await api.get(`/flow-tests?hydrant_id=${hydrantId}&limit=5`);
         setFlowTests(flowRes.data.flowTests || []);
-      } catch (flowError) {
-        console.log('Flow test data not available');
-        setFlowTests([]);
-      }
-      
-      // Load maintenance history (mock data for now)
+      } catch { setFlowTests([]); }
       setMaintenanceHistory([
-        {
-          id: 1,
-          type: 'INSPECTION',
-          date: '2025-09-15',
-          status: 'PASS',
-          inspector: 'Rich Cabral',
-          notes: 'Annual inspection completed - excellent condition'
-        },
-        {
-          id: 2,
-          type: 'FLOW_TEST', 
-          date: '2025-09-15',
-          status: 'AA',
-          inspector: 'Rich Cabral',
-          notes: '2,347 GPM - Class AA performance'
-        }
+        { id: 1, type: 'INSPECTION', date: '2025-09-15', status: 'PASS', inspector: 'Rich Cabral', notes: 'Annual inspection completed - excellent condition' },
+        { id: 2, type: 'FLOW_TEST', date: '2025-09-15', status: 'AA', inspector: 'Rich Cabral', notes: '2,347 GPM - Class AA performance' }
       ]);
-      
-    } catch (error) {
-      console.error('Error loading hydrant details:', error);
-    }
+    } catch {}
   };
 
   const handleMarkerClick = (feature) => {
-    if (addMode) return; // Don't open drawer in add mode
-    
+    if (addMode) return;
     setSelectedHydrant(feature);
     setDrawerOpen(true);
     setDrawerTab(0);
@@ -222,46 +159,21 @@ export default function HydrantMapEnhanced() {
   };
 
   const handleLocationSelect = (lat, lng) => {
-    navigate('/hydrants/new', {
-      state: { 
-        latitude: lat, 
-        longitude: lng,
-        fromMap: true
-      }
-    });
+    navigate('/hydrants/new', { state: { latitude: lat, longitude: lng, fromMap: true } });
   };
 
-  const handleFlowTestSuccess = (flowTest) => {
-    setFlowTests(prev => [flowTest, ...prev]);
-    loadMapData(); // Refresh map with updated data
-  };
+  const handleFlowTestSuccess = (flowTest) => { setFlowTests(prev => [flowTest, ...prev]); loadMapData(); };
+  const handleMaintenanceSuccess = (inspection) => { setMaintenanceHistory(prev => [inspection, ...prev]); loadMapData(); };
 
-  const handleMaintenanceSuccess = (inspection) => {
-    setMaintenanceHistory(prev => [inspection, ...prev]);
-    loadMapData(); // Refresh map with updated status
-  };
+  const getStatusColor = (status) => ({
+    'OPERATIONAL': 'success', 'OUT_OF_SERVICE': 'error', 'MAINTENANCE_REQUIRED': 'warning', 'TESTING': 'info'
+  })[status] || 'default';
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'OPERATIONAL': 'success',
-      'OUT_OF_SERVICE': 'error',
-      'MAINTENANCE_REQUIRED': 'warning',
-      'TESTING': 'info'
-    };
-    return colors[status] || 'default';
-  };
+  const getNFPAChipColor = (nfpaClass) => ({ 'AA': 'primary', 'A': 'success', 'B': 'warning', 'C': 'error' })[nfpaClass] || 'default';
 
-  const getNFPAChipColor = (nfpaClass) => {
-    const colors = {
-      'AA': 'primary',  // Blue
-      'A': 'success',   // Green  
-      'B': 'warning',   // Orange
-      'C': 'error'      // Red
-    };
-    return colors[nfpaClass] || 'default';
-  };
+  const features = React.useMemo(() => geo?.features || [], [geo]);
 
-  const features = useMemo(() => geo?.features || [], [geo]);
+  const markerRadius = isMobile ? 8 : 10;
 
   return (
     <Box sx={{ position: 'relative', height: 'calc(100vh - 80px)' }}>
@@ -271,85 +183,47 @@ export default function HydrantMapEnhanced() {
         </Alert>
       )}
 
-      <MapContainer 
-        center={DEFAULT_CENTER} 
-        zoom={DEFAULT_ZOOM} 
-        style={{ height: '100%', width: '100%' }}
-      >
+      <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%' }}>
         <MapClickHandler addMode={addMode} onLocationSelect={handleLocationSelect} />
-        
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
-            <TileLayer
-              attribution='&copy; OpenStreetMap contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
-            <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
-            />
+            <TileLayer attribution='&copy; Google Maps' url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" />
           </LayersControl.BaseLayer>
         </LayersControl>
 
         {features.map((f) => {
           if (!f?.geometry?.coordinates) return null;
           const [lon, lat] = f.geometry.coordinates;
-          
-          // Determine NFPA class - use flow rate if class not set
-          let cls = f.properties?.nfpa_class || f.properties?.nfpa_classification;
-          if (!cls && f.properties?.flow_rate_gpm) {
-            cls = getNFPAClass(f.properties.flow_rate_gpm);
-          }
-          cls = cls || 'C'; // Default to Class C if unknown
-          
+          let cls = f.properties?.nfpa_class || f.properties?.nfpa_classification || (f.properties?.flow_rate_gpm ? getNFPAClass(f.properties.flow_rate_gpm) : 'C');
           const status = f.properties?.operational_status || f.properties?.status || 'OPERATIONAL';
-          
-          // Choose color based on status first, then NFPA class
-          const color = status === 'OUT_OF_SERVICE' ? NFPA_COLORS.OUT_OF_SERVICE :
-                       status === 'MAINTENANCE_REQUIRED' ? NFPA_COLORS.MAINTENANCE_REQUIRED :
-                       NFPA_COLORS[cls] || NFPA_COLORS.C;
-          
+          const color = status === 'OUT_OF_SERVICE' ? NFPA_COLORS.OUT_OF_SERVICE : status === 'MAINTENANCE_REQUIRED' ? NFPA_COLORS.MAINTENANCE_REQUIRED : NFPA_COLORS[cls] || NFPA_COLORS.C;
+
           return (
-            <CircleMarker
-              key={f.properties.id}
-              center={[lat, lon]}
-              radius={10}
-              pathOptions={{ 
-                color: color, 
-                fillColor: color, 
-                fillOpacity: 0.8,
-                weight: 2,
-                className: 'hydrant-marker'
-              }}
-              eventHandlers={{
-                click: () => handleMarkerClick(f)
-              }}
-            >
+            <CircleMarker key={f.properties.id} center={[lat, lon]} radius={markerRadius}
+              pathOptions={{ color, fillColor: color, fillOpacity: 0.85, weight: 2, className: 'hydrant-marker' }}
+              eventHandlers={{ click: () => handleMarkerClick(f) }}>
               <Popup>
-                <Box sx={{ minWidth: 200 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                <Box sx={{ minWidth: isMobile ? 180 : 220 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: isMobile ? 14 : 16 }}>
                     {f.properties.hydrant_number}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? 12 : 14 }}>
                     {f.properties.address || f.properties.location_address || 'No address'}
                   </Typography>
                   <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap>
                     <Chip size="small" label={`Class ${cls}`} color={getNFPAChipColor(cls)} />
                     <Chip size="small" label={status} color={getStatusColor(status)} />
                   </Stack>
-                  
                   {f.properties.flow_rate_gpm && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                       Flow Rate: {f.properties.flow_rate_gpm} GPM
                     </Typography>
                   )}
-                  
                   <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                    <Button size="small" onClick={() => handleMarkerClick(f)}>
-                      View Details
-                    </Button>
+                    <Button size={isMobile ? 'small' : 'medium'} onClick={() => handleMarkerClick(f)}>View Details</Button>
                   </Stack>
                 </Box>
               </Popup>
@@ -358,152 +232,64 @@ export default function HydrantMapEnhanced() {
         })}
       </MapContainer>
 
-      <Legend />
+      <Legend isMobile={isMobile} />
 
-      {/* Add Hydrant FAB */}
-      <Stack 
-        spacing={1}
-        sx={{ 
-          position: 'absolute', 
-          bottom: 20, 
-          right: 20, 
-          zIndex: 1000 
-        }}
-      >
-        <Tooltip title={addMode ? "Click map to add hydrant" : "Add new hydrant"}>
-          <Fab 
-            color={addMode ? "secondary" : "primary"}
-            onClick={() => setAddMode(!addMode)}
-          >
+      <Stack spacing={1} sx={{ position: 'absolute', bottom: isMobile ? 80 : 20, right: 20, zIndex: 1000 }}>
+        <Tooltip title={addMode ? 'Click map to add hydrant' : 'Add new hydrant'}>
+          <Fab color={addMode ? 'secondary' : 'primary'} onClick={() => setAddMode(!addMode)} aria-label="add hydrant">
             <Add />
           </Fab>
         </Tooltip>
-        
         <Tooltip title="Refresh map data">
-          <Fab 
-            size="small"
-            onClick={loadMapData}
-          >
+          <Fab size="small" onClick={loadMapData} aria-label="refresh map">
             <Refresh />
           </Fab>
         </Tooltip>
       </Stack>
 
-      {/* Add Mode Indicator */}
       {addMode && (
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            position: 'absolute', 
-            top: 20, 
-            left: '50%', 
-            transform: 'translateX(-50%)',
-            p: 2, 
-            zIndex: 1000,
-            bgcolor: 'secondary.main',
-            color: 'white'
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            📍 Add Hydrant Mode Active
-          </Typography>
-          <Typography variant="body2">
-            Click anywhere on the map to place a new hydrant
-          </Typography>
-          <Button 
-            size="small" 
-            sx={{ mt: 1, color: 'white', borderColor: 'white' }}
-            variant="outlined"
-            onClick={() => setAddMode(false)}
-          >
-            Cancel Add Mode
-          </Button>
+        <Paper elevation={3} sx={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', p: 2, zIndex: 1000, bgcolor: 'secondary.main', color: 'white' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: isMobile ? 16 : 18 }}>📍 Add Hydrant Mode Active</Typography>
+          <Typography variant="body2">Click anywhere on the map to place a new hydrant</Typography>
+          <Button size="small" sx={{ mt: 1, color: 'white', borderColor: 'white' }} variant="outlined" onClick={() => setAddMode(false)}>Cancel Add Mode</Button>
         </Paper>
       )}
 
-      {/* Hydrant Details Drawer */}
-      <Drawer 
-        anchor="right" 
-        open={drawerOpen} 
-        onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 480 } } }}
-      >
+      <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 480 } } }}>
         {selectedHydrant && (
-          <Box sx={{ p: 2 }}>
-            {/* Header */}
+          <Box sx={{ p: isMobile ? 1.5 : 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <div>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, fontSize: isMobile ? 18 : 22 }}>
                   {selectedHydrant.properties.hydrant_number}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {selectedHydrant.properties.address || selectedHydrant.properties.location_address}
                 </Typography>
               </div>
-              <IconButton onClick={() => setDrawerOpen(false)}>
-                <Close />
-              </IconButton>
+              <IconButton onClick={() => setDrawerOpen(false)} aria-label="close details"><Close /></IconButton>
             </Stack>
 
-            {/* Status Chips */}
             <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap>
-              <Chip 
-                label={`Class ${selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification || 'TBD'}`}
-                color={getNFPAChipColor(selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification)}
-              />
-              <Chip 
-                label={selectedHydrant.properties.operational_status || selectedHydrant.properties.status || 'Operational'}
-                color={getStatusColor(selectedHydrant.properties.operational_status || selectedHydrant.properties.status)}
-              />
-              {selectedHydrant.properties.flow_rate_gpm && (
-                <Chip 
-                  label={`${selectedHydrant.properties.flow_rate_gpm} GPM`}
-                  variant="outlined"
-                />
-              )}
+              <Chip label={`Class ${selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification || 'TBD'}`} color={getNFPAChipColor(selectedHydrant.properties.nfpa_class || selectedHydrant.properties.nfpa_classification)} />
+              <Chip label={selectedHydrant.properties.operational_status || selectedHydrant.properties.status || 'Operational'} color={getStatusColor(selectedHydrant.properties.operational_status || selectedHydrant.properties.status)} />
+              {selectedHydrant.properties.flow_rate_gpm && (<Chip label={`${selectedHydrant.properties.flow_rate_gpm} GPM`} variant="outlined" />)}
             </Stack>
 
-            {/* Quick Actions */}
             <Card sx={{ mb: 2 }}>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Quick Actions</Typography>
+                <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? 16 : 18 }}>Quick Actions</Typography>
                 <Stack spacing={1}>
-                  <Button 
-                    variant="contained" 
-                    startIcon={<Timeline />}
-                    onClick={() => setFlowTestModal(true)}
-                    fullWidth
-                  >
-                    Record Flow Test
-                  </Button>
-                  <Button 
-                    variant="contained" 
-                    startIcon={<Build />}
-                    onClick={() => setMaintenanceModal(true)}
-                    color="secondary"
-                    fullWidth
-                  >
-                    Record Maintenance
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<Edit />}
-                    onClick={() => navigate(`/hydrants/${selectedHydrant.properties.id}/edit`)}
-                    fullWidth
-                  >
-                    Edit Hydrant
-                  </Button>
+                  <Button variant="contained" startIcon={<Timeline />} onClick={() => setFlowTestModal(true)} fullWidth>Record Flow Test</Button>
+                  <Button variant="contained" startIcon={<Build />} onClick={() => setMaintenanceModal(true)} color="secondary" fullWidth>Record Maintenance</Button>
+                  <Button variant="outlined" startIcon={<Edit />} onClick={() => navigate(`/hydrants/${selectedHydrant.properties.id}/edit`)} fullWidth>Edit Hydrant</Button>
                 </Stack>
               </CardContent>
             </Card>
 
-            {/* Tabbed Content */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs 
-                value={drawerTab} 
-                onChange={(e, newValue) => setDrawerTab(newValue)}
-                variant="fullWidth"
-              >
+              <Tabs value={drawerTab} onChange={(e, v) => setDrawerTab(v)} variant="fullWidth">
                 <Tab label="Overview" />
                 <Tab label="Flow Tests" />
                 <Tab label="Maintenance" />
@@ -515,13 +301,9 @@ export default function HydrantMapEnhanced() {
                 <Stack spacing={2}>
                   <div>
                     <Typography variant="subtitle2" color="text.secondary">Location</Typography>
-                    <Typography variant="body2">
-                      <LocationOn sx={{ fontSize: 16, mr: 0.5 }} />
-                      {hydrantDetails.latitude?.toFixed(6)}, {hydrantDetails.longitude?.toFixed(6)}
-                    </Typography>
+                    <Typography variant="body2"><LocationOn sx={{ fontSize: 16, mr: 0.5 }} />{hydrantDetails.latitude?.toFixed(6)}, {hydrantDetails.longitude?.toFixed(6)}</Typography>
                     <Typography variant="body2">{hydrantDetails.location_description}</Typography>
                   </div>
-                  
                   <div>
                     <Typography variant="subtitle2" color="text.secondary">Specifications</Typography>
                     <Typography variant="body2">Manufacturer: {hydrantDetails.manufacturer}</Typography>
@@ -529,7 +311,6 @@ export default function HydrantMapEnhanced() {
                     <Typography variant="body2">Watermain: {hydrantDetails.watermain_size_mm}mm</Typography>
                     <Typography variant="body2">Installed: {dayjs(hydrantDetails.installation_date).format('MMM DD, YYYY')}</Typography>
                   </div>
-                  
                   <div>
                     <Typography variant="subtitle2" color="text.secondary">Last Readings</Typography>
                     <Typography variant="body2">Static Pressure: {hydrantDetails.static_pressure_psi || 'TBD'} PSI</Typography>
@@ -538,22 +319,15 @@ export default function HydrantMapEnhanced() {
                     <Typography variant="body2">Last Inspection: {hydrantDetails.last_inspection_date ? dayjs(hydrantDetails.last_inspection_date).format('MMM DD, YYYY') : 'Never'}</Typography>
                   </div>
                 </Stack>
-              ) : (
-                <Typography>Loading hydrant details...</Typography>
-              )}
+              ) : <Typography>Loading hydrant details...</Typography>}
             </TabPanel>
 
             <TabPanel value={drawerTab} index={1}>
               <Stack spacing={2}>
-                <div>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6">Flow Tests</Typography>
-                    <Button size="small" startIcon={<Add />} onClick={() => setFlowTestModal(true)}>
-                      New Test
-                    </Button>
-                  </Stack>
-                </div>
-                
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Flow Tests</Typography>
+                  <Button size="small" startIcon={<Add />} onClick={() => setFlowTestModal(true)}>New Test</Button>
+                </Stack>
                 {flowTests.length > 0 ? (
                   <TableContainer>
                     <Table size="small">
@@ -570,13 +344,7 @@ export default function HydrantMapEnhanced() {
                           <TableRow key={test.id}>
                             <TableCell>{dayjs(test.test_date).format('MMM DD')}</TableCell>
                             <TableCell>{test.total_flow_gpm || test.flow_rate_gpm}</TableCell>
-                            <TableCell>
-                              <Chip 
-                                label={test.nfpa_class || test.nfpa_classification}
-                                size="small"
-                                color={getNFPAChipColor(test.nfpa_class || test.nfpa_classification)}
-                              />
-                            </TableCell>
+                            <TableCell><Chip label={test.nfpa_class || test.nfpa_classification} size="small" color={getNFPAChipColor(test.nfpa_class || test.nfpa_classification)} /></TableCell>
                             <TableCell>{test.static_pressure_psi} PSI</TableCell>
                           </TableRow>
                         ))}
@@ -584,52 +352,34 @@ export default function HydrantMapEnhanced() {
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Alert severity="info">
-                    No flow tests recorded. Click "Record Flow Test" to add the first test.
-                  </Alert>
+                  <Alert severity="info">No flow tests recorded. Click "Record Flow Test" to add the first test.</Alert>
                 )}
               </Stack>
             </TabPanel>
 
             <TabPanel value={drawerTab} index={2}>
               <Stack spacing={2}>
-                <div>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6">Maintenance History</Typography>
-                    <Button size="small" startIcon={<Add />} onClick={() => setMaintenanceModal(true)}>
-                      New Inspection
-                    </Button>
-                  </Stack>
-                </div>
-                
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Maintenance History</Typography>
+                  <Button size="small" startIcon={<Add />} onClick={() => setMaintenanceModal(true)}>New Inspection</Button>
+                </Stack>
                 {maintenanceHistory.length > 0 ? (
                   <Stack spacing={1}>
                     {maintenanceHistory.map((item) => (
                       <Paper key={item.id} sx={{ p: 2 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <div>
-                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                              {item.type.replace('_', ' ')}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {dayjs(item.date).format('MMM DD, YYYY')} by {item.inspector}
-                            </Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>{item.type.replace('_', ' ')}</Typography>
+                            <Typography variant="body2" color="text.secondary">{dayjs(item.date).format('MMM DD, YYYY')} by {item.inspector}</Typography>
                             <Typography variant="body2">{item.notes}</Typography>
                           </div>
-                          <Chip 
-                            label={item.status}
-                            color={item.status === 'PASS' || item.status === 'AA' ? 'success' : 
-                                   item.status === 'CONDITIONAL' ? 'warning' : 'error'}
-                            size="small"
-                          />
+                          <Chip label={item.status} color={item.status === 'PASS' || item.status === 'AA' ? 'success' : item.status === 'CONDITIONAL' ? 'warning' : 'error'} size="small" />
                         </Stack>
                       </Paper>
                     ))}
                   </Stack>
                 ) : (
-                  <Alert severity="info">
-                    No maintenance inspections recorded. Click "Record Maintenance" to add the first inspection.
-                  </Alert>
+                  <Alert severity="info">No maintenance inspections recorded. Click "Record Maintenance" to add the first inspection.</Alert>
                 )}
               </Stack>
             </TabPanel>
@@ -637,21 +387,8 @@ export default function HydrantMapEnhanced() {
         )}
       </Drawer>
 
-      {/* Flow Test Quick Modal */}
-      <FlowTestQuickModal
-        open={flowTestModal}
-        onClose={() => setFlowTestModal(false)}
-        hydrant={selectedHydrant?.properties}
-        onSuccess={handleFlowTestSuccess}
-      />
-
-      {/* Maintenance Quick Modal */}
-      <MaintenanceQuickModal
-        open={maintenanceModal}
-        onClose={() => setMaintenanceModal(false)}
-        hydrant={selectedHydrant?.properties}
-        onSuccess={handleMaintenanceSuccess}
-      />
+      <FlowTestQuickModal open={flowTestModal} onClose={() => setFlowTestModal(false)} hydrant={selectedHydrant?.properties} onSuccess={handleFlowTestSuccess} />
+      <MaintenanceQuickModal open={maintenanceModal} onClose={() => setMaintenanceModal(false)} hydrant={selectedHydrant?.properties} onSuccess={handleMaintenanceSuccess} />
     </Box>
   );
 }
