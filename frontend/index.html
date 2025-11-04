@@ -11,13 +11,16 @@
   <meta name="keywords" content="fire hydrant management, NFPA 291, flow testing, municipal water, hydrant tracking, fire safety, water distribution, GTA, Hamilton, Niagara" />
   <meta name="author" content="Trident Systems" />
   <meta name="language" content="en-CA" />
+  <meta name="theme-color" content="#1976d2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   
   <!-- Open Graph Tags -->
   <meta property="og:title" content="HydrantHub - Fire Hydrant Management Platform" />
   <meta property="og:description" content="Professional fire hydrant management platform with NFPA 291 compliant flow testing and real-time status tracking by Trident Systems." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://app.tridentsys.ca/" />
-  <meta property="og:image" content="https://tridentsys.ca/trident-logo.png" />
+  <meta property="og:image" content="/trident-logo.png" />
   <meta property="og:site_name" content="HydrantHub by Trident Systems" />
   <meta property="og:locale" content="en_CA" />
   
@@ -25,16 +28,15 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="HydrantHub - Fire Hydrant Management Platform" />
   <meta name="twitter:description" content="Professional fire hydrant management platform with NFPA 291 compliant flow testing and real-time status tracking by Trident Systems." />
-  <meta name="twitter:image" content="https://tridentsys.ca/trident-logo.png" />
+  <meta name="twitter:image" content="/trident-logo.png" />
   
   <!-- Favicon and Icons -->
-  <link rel="icon" type="image/png" href="https://tridentsys.ca/trident-logo.png" />
-  <link rel="shortcut icon" type="image/png" href="https://tridentsys.ca/trident-logo.png" />
-  <link rel="apple-touch-icon" href="https://tridentsys.ca/trident-logo.png" />
+  <link rel="icon" type="image/png" href="/trident-logo.png" />
+  <link rel="shortcut icon" type="image/png" href="/trident-logo.png" />
+  <link rel="apple-touch-icon" href="/trident-logo.png" />
   
   <!-- Performance Optimization -->
   <link rel="preconnect" href="https://hydrant-management-production.up.railway.app" crossorigin />
-  <link rel="preconnect" href="https://tridentsys.ca" />
   <link rel="dns-prefetch" href="//fonts.googleapis.com" />
   
   <!-- Title (will be updated dynamically by React Router) -->
@@ -42,12 +44,12 @@
   
   <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"HydrantHub","applicationCategory":"BusinessApplication","operatingSystem":"Web Browser","url":"https://app.tridentsys.ca","description":"Professional fire hydrant management platform with NFPA 291 compliant flow testing, real-time hydrant status tracking, and comprehensive municipal water distribution management tools.","author":{"@type":"Organization","name":"Trident Systems","url":"https://tridentsys.ca","logo":"https://tridentsys.ca/trident-logo.png","sameAs":["https://app.tridentsys.ca"]},"offers":{"@type":"Offer","price":"0","priceCurrency":"CAD","availability":"https://schema.org/InStock","description":"Professional hydrant management platform for municipalities and contractors"},"featureList":["NFPA 291 Compliant Flow Testing","Real-time Hydrant Status Tracking","Interactive Mapping Interface","PDF Report Generation","Municipal Water Distribution Management"],"screenshot":"https://tridentsys.ca/trident-logo.png","softwareVersion":"2.0","datePublished":"2025-10-30","inLanguage":"en-CA","isAccessibleForFree":true}
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"HydrantHub","applicationCategory":"BusinessApplication","applicationSubCategory":"UtilityManagementApplication","operatingSystem":"Web Browser, iOS, Android","url":"https://app.tridentsys.ca","description":"Professional fire hydrant management platform with NFPA 291 compliant flow testing, real-time hydrant status tracking, and comprehensive municipal water distribution management tools.","author":{"@type":"Organization","name":"Trident Systems","url":"https://tridentsys.ca","logo":"/trident-logo.png","sameAs":["https://app.tridentsys.ca"]},"offers":{"@type":"Offer","price":"0","priceCurrency":"CAD","availability":"https://schema.org/InStock","description":"Professional hydrant management platform for municipalities and contractors"},"featureList":["NFPA 291 Compliant Flow Testing","Real-time Hydrant Status Tracking","Interactive Mapping Interface","PDF Report Generation","Municipal Water Distribution Management"],"screenshot":"/trident-logo.png","softwareVersion":"2.0","datePublished":"2025-10-30","inLanguage":"en-CA","isAccessibleForFree":true}
   </script>
   
   <!-- Organization Schema -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Organization","name":"Trident Systems","url":"https://tridentsys.ca","logo":"https://tridentsys.ca/trident-logo.png","description":"Professional fire flow testing and hydrant management services following NFPA 291 standards. Serving municipalities across Greater Toronto Area, Hamilton, and Niagara regions.","address":{"@type":"PostalAddress","addressRegion":"Ontario","addressCountry":"CA"},"areaServed":["Greater Toronto Area","Hamilton","Niagara Region","Peel Region","Halton Region","Milton"],"serviceType":["Fire Flow Testing","Hydrant Management","NFPA 291 Compliance","Water Distribution Analysis"],"email":"info@tridentsys.ca","sameAs":["https://app.tridentsys.ca"]}
+  {"@context":"https://schema.org","@type":"Organization","name":"Trident Systems","url":"https://tridentsys.ca","logo":"/trident-logo.png","description":"Professional fire flow testing and hydrant management services following NFPA 291 standards. Serving municipalities across Greater Toronto Area, Hamilton, and Niagara regions.","address":{"@type":"PostalAddress","addressRegion":"Ontario","addressCountry":"CA"},"areaServed":["Greater Toronto Area","Hamilton","Niagara Region","Peel Region","Halton Region","Milton"],"serviceType":["Fire Flow Testing","Hydrant Management","NFPA 291 Compliance","Water Distribution Analysis"],"email":"info@tridentsys.ca","sameAs":["https://app.tridentsys.ca"]}
   </script>
 
   <!-- INCLUDE: Mobile navigation CSS from public -->
@@ -62,10 +64,13 @@
   
   <!-- Analytics and Optimization Scripts -->
   <script>
-    window.updatePageTitle = function(title) {
+    window.updatePageTitle = function(title, description) {
       const baseTitle = "HydrantHub | Trident Systems";
       document.title = title ? `${title} - ${baseTitle}` : baseTitle;
-      document.getElementById('page-title').textContent = document.title;
+      const desc = description || 'HydrantHub by Trident Systems — NFPA 291 compliant flow testing and hydrant management';
+      let meta = document.querySelector('meta[name="description"]');
+      if (!meta) { meta = document.createElement('meta'); meta.name = 'description'; document.head.appendChild(meta); }
+      meta.setAttribute('content', desc);
     };
     if ('connection' in navigator && navigator.connection.effectiveType) {
       if (navigator.connection.effectiveType === 'slow-2g' || navigator.connection.effectiveType === '2g') {
