@@ -469,7 +469,7 @@ export default function EnhancedDashboard() {
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Box sx={{ width: 16, height: 16, backgroundColor: '#FF0000', borderRadius: '50%' }} />
-                    <Typography variant="body2">Class C (<500 GPM)</Typography>
+                    <Typography variant="body2">Class C (&lt;500 GPM)</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>0 hydrants</Typography>
                 </Stack>
