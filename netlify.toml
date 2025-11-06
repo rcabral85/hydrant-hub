@@ -19,3 +19,9 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Headers for Google Analytics
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; connect-src 'self' https://hydrant-management-production.up.railway.app https://www.google-analytics.com https://analytics.google.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';"
