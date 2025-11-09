@@ -16,6 +16,10 @@ import {
 } from '@mui/material';
 import { Assignment as AssignmentIcon } from '@mui/icons-material';
 import { listHydrants } from '../services/api';
+import { getInspectionsByHydrant, getWorkOrders } from '../services/inspectionService';
+import InspectionList from '../components/InspectionList';
+import InspectionForm from '../components/InspectionForm';
+import WorkOrderCard from '../components/WorkOrderCard';
 
 function Inspections() {
   const [selectedTab, setSelectedTab] = useState(0);
@@ -23,10 +27,19 @@ function Inspections() {
   const [selectedHydrant, setSelectedHydrant] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [inspections, setInspections] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
     loadHydrants();
   }, []);
+
+  useEffect(() => {
+    if (selectedHydrant) {
+      loadInspectionsAndWorkOrders();
+    }
+  }, [selectedHydrant]);
 
   const loadHydrants = async () => {
     try {
@@ -43,12 +56,44 @@ function Inspections() {
     }
   };
 
+  const loadInspectionsAndWorkOrders = async () => {
+    try {
+      setLoadingData(true);
+      const [inspectionsData, workOrdersData] = await Promise.all([
+        getInspectionsByHydrant(selectedHydrant),
+        getWorkOrders(selectedHydrant)
+      ]);
+      setInspections(inspectionsData || []);
+      setWorkOrders(workOrdersData || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load inspection data');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
   const handleTabChange = (event, newValue) => {
     setSelectedTab(newValue);
   };
 
   const handleHydrantChange = (event) => {
     setSelectedHydrant(event.target.value);
+    setSelectedTab(0);
+  };
+
+  const handleInspectionCreated = () => {
+    loadInspectionsAndWorkOrders();
+    setSelectedTab(0);
+  };
+
+  const handleWorkOrderUpdate = async (workOrderId, updates) => {
+    try {
+      await updateWorkOrder(workOrderId, updates);
+      loadInspectionsAndWorkOrders();
+    } catch (err) {
+      setError('Failed to update work order');
+    }
   };
 
   if (loading) {
@@ -61,7 +106,6 @@ function Inspections() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      {/* Page Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <AssignmentIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
         <Typography variant="h4" component="h1">
@@ -75,7 +119,6 @@ function Inspections() {
         </Alert>
       )}
 
-      {/* Hydrant Selector */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <FormControl fullWidth>
           <InputLabel>Select Hydrant</InputLabel>
@@ -96,7 +139,6 @@ function Inspections() {
         </FormControl>
       </Paper>
 
-      {/* Tab Navigation */}
       {selectedHydrant && (
         <Paper sx={{ mb: 3 }}>
           <Tabs
@@ -113,43 +155,46 @@ function Inspections() {
         </Paper>
       )}
 
-      {/* Tab Content */}
       {selectedHydrant ? (
         <Box>
           {selectedTab === 0 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Inspection History
-              </Typography>
-              <Typography color="text.secondary">
-                Inspection list component will be displayed here.
-                Hydrant ID: {selectedHydrant}
-              </Typography>
-            </Paper>
+            <InspectionList
+              hydrantId={selectedHydrant}
+              inspections={inspections}
+              loading={loadingData}
+              error={error}
+              onViewDetails={(inspection) => console.log('View:', inspection)}
+              onGeneratePdf={(inspection) => console.log('PDF:', inspection)}
+            />
           )}
-
           {selectedTab === 1 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                New Inspection
-              </Typography>
-              <Typography color="text.secondary">
-                Inspection form component will be displayed here.
-                Hydrant ID: {selectedHydrant}
-              </Typography>
-            </Paper>
+            <InspectionForm
+              hydrantId={selectedHydrant}
+              onInspectionCreated={handleInspectionCreated}
+            />
           )}
-
           {selectedTab === 2 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Work Orders
-              </Typography>
-              <Typography color="text.secondary">
-                Work orders component will be displayed here.
-                Hydrant ID: {selectedHydrant}
-              </Typography>
-            </Paper>
+            <Box>
+              {loadingData ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : workOrders.length === 0 ? (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography color="text.secondary">
+                    No work orders found for this hydrant
+                  </Typography>
+                </Paper>
+              ) : (
+                workOrders.map((wo) => (
+                  <WorkOrderCard
+                    key={wo._id}
+                    workOrder={wo}
+                    onUpdate={handleWorkOrderUpdate}
+                  />
+                ))
+              )}
+            </Box>
           )}
         </Box>
       ) : (
