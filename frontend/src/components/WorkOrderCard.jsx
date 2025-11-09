@@ -53,3 +53,68 @@ const WorkOrderCard = ({ workOrder, onUpdate }) => {
 
   return (
     <Card elevation={2} sx={{ mb: 2
+ }}>
+      <CardContent>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Work Order #{workOrder.workOrderNumber || workOrder._id?.slice(-6)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Created: {format(new Date(workOrder.createdAt), 'PPP')}
+            </Typography>
+          </Box>
+          <Box>
+            <Chip
+              label={workOrder.priority || 'Medium'}
+              color={getPriorityColor(workOrder.priority)}
+              size="small"
+              sx={{ mr: 1 }}
+            />
+            <Chip
+              label={workOrder.status || 'Pending'}
+              color={getStatusColor(workOrder.status)}
+              size="small"
+            />
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="body1" paragraph>
+          {workOrder.description || 'No description provided'}
+        </Typography>
+
+        {workOrder.notes && (
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Notes: {workOrder.notes}
+          </Typography>
+        )}
+
+        <Box display="flex" gap={1} mt={2}>
+          {workOrder.status !== 'completed' && (
+            <>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => handleStatusChange('in_progress')}
+              >
+                In Progress
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                onClick={() => handleStatusChange('completed')}
+              >
+                Complete
+              </Button>
+            </>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default WorkOrderCard;
