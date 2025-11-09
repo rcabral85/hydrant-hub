@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Assignment as AssignmentIcon } from '@mui/icons-material';
 import { listHydrants } from '../services/api';
-import { getInspectionsByHydrant, getWorkOrders } from '../services/inspectionService';
+import { getInspectionsByHydrant, getWorkOrders, updateWorkOrder } from '../services/inspectionService';
 import InspectionList from '../components/InspectionList';
 import InspectionForm from '../components/InspectionForm';
 import WorkOrderCard from '../components/WorkOrderCard';
