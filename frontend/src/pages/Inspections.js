@@ -96,9 +96,15 @@ function Inspections() {
     }
   };
 
-  if (loading) return React.createElement('div', {style:{display:'flex',justifyContent:'center',marginTop:32}}, React.createElement(CircularProgress));
-  
+  if (loading) {
     return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <AssignmentIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
