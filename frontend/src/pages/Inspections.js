@@ -96,8 +96,7 @@ function Inspections() {
     }
   };
 
-if (loading) return <div style={{display:'flex',justifyContent:'center',marginTop:32}}><CircularProgress /></div>;
-
+  if (loading) return React.createElement('div', {style:{display:'flex',justifyContent:'center',marginTop:32}}, React.createElement(CircularProgress));
   
     return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
