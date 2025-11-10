@@ -103,7 +103,8 @@ if (loading) {
       </Box>
     );
   }
-  return (
+
+    return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <AssignmentIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
