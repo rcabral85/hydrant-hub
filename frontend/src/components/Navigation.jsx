@@ -69,6 +69,7 @@ export default function Navigation() {
             <NavButton to="/maintenance" label="Maintenance" active={path.startsWith('/maintenance')} />
             <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
             <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
+            <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
             <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
               Trident Site
             </Button>
