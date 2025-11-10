@@ -1,5 +1,4 @@
-// HydrantHub - Add New Hydrant Component (with Address Geocoding)
-// Geocoding: Enter address, auto-set latitude/longitude using Nominatim
+// HydrantHub - Add New Hydrant Component (geocoding removed)
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, TextField, Button,
@@ -9,7 +8,7 @@ import {
 } from '@mui/material';
 import {
   Save, Cancel, LocationOn, Map as MapIcon, MyLocation, Business,
-  DateRange, Build, Straighten, Opacity, Search
+  DateRange, Build, Straighten, Opacity
 } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -59,8 +58,6 @@ export default function HydrantAdd() {
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeError, setGeocodeError] = useState('');
   const [hydrantData, setHydrantData] = useState({
     hydrant_number: '',
     manufacturer: '',
@@ -77,7 +74,6 @@ export default function HydrantAdd() {
     inspector_notes: ''
   });
 
-  // Get current GPS location if available
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -106,28 +102,6 @@ export default function HydrantAdd() {
   const updateField = (field, value) => {
     setHydrantData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
-  };
-
-  // Geocode address to lat/lon using Nominatim
-  const geocodeAddress = async () => {
-    setGeocodeLoading(true);
-    setGeocodeError('');
-    try {
-      const query = encodeURIComponent(hydrantData.location_address);
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
-      const resp = await fetch(url, { headers: { 'User-Agent': 'HydrantHub/1.0 (tridentsys.ca)' } });
-      const data = await resp.json();
-      if (data.length === 0) {
-        setGeocodeError('Address not found. Try a more complete or different address.');
-      } else {
-        const { lat, lon } = data[0];
-        setHydrantData(prev => ({ ...prev, latitude: parseFloat(lat), longitude: parseFloat(lon) }));
-      }
-    } catch (e) {
-      setGeocodeError('Geocoding failed. Try again.');
-    } finally {
-      setGeocodeLoading(false);
-    }
   };
 
   const validateForm = () => {
@@ -258,8 +232,6 @@ export default function HydrantAdd() {
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><LocationOn className="me-2" />Location</Typography>
               <Stack spacing={3}>
                 <TextField label="Street Address *" value={hydrantData.location_address} onChange={(e) => updateField('location_address', e.target.value)} error={!!errors.location_address} helperText={errors.location_address || 'Full municipal address'} placeholder="123 Main Street, Milton, ON" fullWidth multiline />
-                <Button variant="outlined" color="primary" startIcon={<Search />} onClick={geocodeAddress} disabled={geocodeLoading || !hydrantData.location_address} sx={{ alignSelf: 'flex-start' }}>Geocode Address</Button>
-                {geocodeError && (<Typography variant="caption" color="error">{geocodeError}</Typography>)}
                 <TextField label="Location Description" value={hydrantData.location_description} onChange={(e) => updateField('location_description', e.target.value)} placeholder="Northwest corner, near fire station entrance" fullWidth multiline rows={2} />
                 <Grid container spacing={2}>
                   <Grid item xs={6}><TextField label="Latitude *" type="number" step="0.000001" value={hydrantData.latitude} onChange={(e) => updateField('latitude', parseFloat(e.target.value))} error={!!errors.latitude} helperText={errors.latitude} InputProps={{ startAdornment: (<InputAdornment position="start"><MyLocation /></InputAdornment>) }} fullWidth /></Grid>
