@@ -96,119 +96,119 @@ function Inspections() {
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-  
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <AssignmentIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant="h4" component="h1">
-          Inspection Management
-        </Typography>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <FormControl fullWidth>
-          <InputLabel>Select Hydrant</InputLabel>
-          <Select
-            value={selectedHydrant}
-            label="Select Hydrant"
-            onChange={handleHydrantChange}
-          >
-            <MenuItem value="">
-              <em>Choose a hydrant...</em>
-            </MenuItem>
-            {hydrants.map((hydrant) => (
-              <MenuItem key={hydrant.id} value={hydrant.id}>
-                {hydrant.hydrant_number} - {hydrant.location_address || 'No address'}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Paper>
-
-      {selectedHydrant && (
-        <Paper sx={{ mb: 3 }}>
-          <Tabs
-            value={selectedTab}
-            onChange={handleTabChange}
-            indicatorColor="primary"
-            textColor="primary"
-            variant="fullWidth"
-          >
-            <Tab label="Inspection History" />
-            <Tab label="New Inspection" />
-            <Tab label="Work Orders" />
-          </Tabs>
-        </Paper>
-      )}
-
-      {selectedHydrant ? (
-        <Box>
-          {selectedTab === 0 && (
-            <InspectionList
-              hydrantId={selectedHydrant}
-              inspections={inspections}
-              loading={loadingData}
-              error={error}
-              onViewDetails={(inspection) => console.log('View:', inspection)}
-              onGeneratePdf={(inspection) => console.log('PDF:', inspection)}
-            />
-          )}
-          {selectedTab === 1 && (
-            <InspectionForm
-              hydrantId={selectedHydrant}
-              onInspectionCreated={handleInspectionCreated}
-            />
-          )}
-          {selectedTab === 2 && (
-            <Box>
-              {loadingData ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : workOrders.length === 0 ? (
-                <Paper sx={{ p: 4, textAlign: 'center' }}>
-                  <Typography color="text.secondary">
-                    No work orders found for this hydrant
-                  </Typography>
-                </Paper>
-              ) : (
-                workOrders.map((wo) => (
-                  <WorkOrderCard
-                    key={wo._id}
-                    workOrder={wo}
-                    onUpdate={handleWorkOrderUpdate}
-                  />
-                ))
-              )}
-            </Box>
-          )}
+    <>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
         </Box>
       ) : (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            Select a hydrant to view or create inspections
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            Choose a hydrant from the dropdown above to get started
-          </Typography>
-        </Paper>
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <AssignmentIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
+            <Typography variant="h4" component="h1">
+              Inspection Management
+            </Typography>
+          </Box>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel>Select Hydrant</InputLabel>
+              <Select
+                value={selectedHydrant}
+                label="Select Hydrant"
+                onChange={handleHydrantChange}
+              >
+                <MenuItem value="">
+                  <em>Choose a hydrant...</em>
+                </MenuItem>
+                {hydrants.map((hydrant) => (
+                  <MenuItem key={hydrant.id} value={hydrant.id}>
+                    {hydrant.hydrant_number} - {hydrant.location_address || 'No address'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Paper>
+
+          {selectedHydrant && (
+            <Paper sx={{ mb: 3 }}>
+              <Tabs
+                value={selectedTab}
+                onChange={handleTabChange}
+                indicatorColor="primary"
+                textColor="primary"
+                variant="fullWidth"
+              >
+                <Tab label="Inspection History" />
+                <Tab label="New Inspection" />
+                <Tab label="Work Orders" />
+              </Tabs>
+            </Paper>
+          )}
+
+          {selectedHydrant ? (
+            <Box>
+              {selectedTab === 0 && (
+                <InspectionList
+                  hydrantId={selectedHydrant}
+                  inspections={inspections}
+                  loading={loadingData}
+                  error={error}
+                  onViewDetails={(inspection) => console.log('View:', inspection)}
+                  onGeneratePdf={(inspection) => console.log('PDF:', inspection)}
+                />
+              )}
+              {selectedTab === 1 && (
+                <InspectionForm
+                  hydrantId={selectedHydrant}
+                  onInspectionCreated={handleInspectionCreated}
+                />
+              )}
+              {selectedTab === 2 && (
+                <Box>
+                  {loadingData ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : workOrders.length === 0 ? (
+                    <Paper sx={{ p: 4, textAlign: 'center' }}>
+                      <Typography color="text.secondary">
+                        No work orders found for this hydrant
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    workOrders.map((wo) => (
+                      <WorkOrderCard
+                        key={wo._id}
+                        workOrder={wo}
+                        onUpdate={handleWorkOrderUpdate}
+                      />
+                    ))
+                  )}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Select a hydrant to view or create inspections
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                Choose a hydrant from the dropdown above to get started
+              </Typography>
+            </Paper>
+          )}
+        </Container>
       )}
-    </Container>
+    </>
   );
 }
 
