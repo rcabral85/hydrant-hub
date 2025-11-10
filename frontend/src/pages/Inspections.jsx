@@ -63,11 +63,13 @@ function Inspections() {
         getInspectionsByHydrant(selectedHydrant),
         getWorkOrders(selectedHydrant)
       ]);
-      setInspections(inspectionsData || []);
-      setWorkOrders(workOrdersData || []);
+      setInspections(Array.isArray(inspectionsData) ? inspectionsData : []);
+      setWorkOrders(Array.isArray(workOrdersData) ? workOrdersData : []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load inspection data');
+      setInspections([]);
+      setWorkOrders([]);
     } finally {
       setLoadingData(false);
     }
@@ -184,7 +186,7 @@ function Inspections() {
                       </Typography>
                     </Paper>
                   ) : (
-                    workOrders.map((wo) => (
+                    (Array.isArray(workOrders) ? workOrders : []).map((wo) => (
                       <WorkOrderCard
                         key={wo._id}
                         workOrder={wo}
