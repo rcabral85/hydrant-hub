@@ -41,7 +41,6 @@ const ValveInspectionForm = ({ hydrantId, onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       await createValveInspection(hydrantId, formData, photos);
       setFormData({
@@ -66,10 +65,127 @@ const ValveInspectionForm = ({ hydrantId, onSuccess }) => {
   return (
     <Box component="form" onSubmit={handleSubmit}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      
+
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <TextField
             fullWidth
             label="Inspector Name"
-            name
+            name="inspector"
+            value={formData.inspector}
+            onChange={handleChange}
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth required>
+            <InputLabel>Valve Operation</InputLabel>
+            <Select
+              name="valveOperation"
+              value={formData.valveOperation}
+              onChange={handleChange}
+              label="Valve Operation"
+            >
+              <MenuItem value="">Select...</MenuItem>
+              <MenuItem value="OPENS">Opens</MenuItem>
+              <MenuItem value="CLOSES">Closes</MenuItem>
+              <MenuItem value="NA">N/A</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Turns to Open"
+            name="turnsToOpen"
+            value={formData.turnsToOpen}
+            onChange={handleChange}
+            type="number"
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Turns to Close"
+            name="turnsToClose"
+            value={formData.turnsToClose}
+            onChange={handleChange}
+            type="number"
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Leakage (Visible?)"
+            name="leakage"
+            value={formData.leakage}
+            onChange={handleChange}
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Pressure (PSI)"
+            name="pressure"
+            value={formData.pressure}
+            onChange={handleChange}
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Flow Rate (GPM)"
+            name="flowRate"
+            value={formData.flowRate}
+            onChange={handleChange}
+            required
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Additional Notes"
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            multiline
+            minRows={2}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            component="label"
+            fullWidth
+          >
+            Upload Photos
+            <input
+              type="file"
+              hidden
+              multiple
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+          </Button>
+        </Grid>
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            color="primary"
+            type="submit"
+            fullWidth
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Submit Inspection'}
+          </Button>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+export default ValveInspectionForm;
