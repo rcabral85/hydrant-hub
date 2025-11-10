@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import Login from './components/Login';
+import Register from './components/Register';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import HydrantMapEnhanced from './components/HydrantMapEnhanced';
 import FlowTestForm from './components/FlowTestForm';
@@ -57,6 +58,7 @@ function TitleUpdater() {
   useEffect(() => {
     const routeTitles = {
       '/login': 'Login',
+      '/register': 'Create Account',
       '/dashboard': 'Dashboard',
       '/map': 'Interactive Hydrant Map',
       '/maintenance': 'Maintenance Management',
@@ -114,6 +116,7 @@ function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><EnhancedDashboard /></ProtectedRoute>} />
