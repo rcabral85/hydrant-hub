@@ -43,7 +43,10 @@ const InspectionList = ({ hydrantId, inspections, loading, error, onViewDetails,
     );
   }
 
-  if (inspections.length === 0) {
+  // Defensive: inspections is always an array
+  const safeInspections = Array.isArray(inspections) ? inspections : [];
+
+  if (safeInspections.length === 0) {
     return (
       <Alert severity="info" sx={{ mt: 2 }}>
         No inspections found for this hydrant
@@ -82,7 +85,7 @@ const InspectionList = ({ hydrantId, inspections, loading, error, onViewDetails,
   return (
     <Box sx={{ mt: 2 }}>
       <Stack spacing={2}>
-        {inspections.map((inspection) => (
+        {safeInspections.map((inspection) => (
           <Card key={inspection._id} elevation={2}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start">
