@@ -42,6 +42,7 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const flowTestRoutes = require('./routes/flow-tests');
 const hydrantRoutes = require('./routes/hydrants');
+const orgSignupRoutes = require('./routes/org-signup');
 
 // API Routes
 app.use('/api/admin', adminRoutes);
@@ -50,6 +51,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/tests', flowTestRoutes); // Alias for flow-tests to match documentation
 app.use('/api/hydrants', hydrantRoutes);
+app.use('/api/org-signup', orgSignupRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
