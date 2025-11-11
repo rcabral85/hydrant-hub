@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const { db } = require('../config/database');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Try to require checkSuperadmin with error handling
 let checkSuperadmin;
@@ -23,7 +23,7 @@ try {
 }
 
 // Protect all admin routes with both auth and superadmin check
-router.use(authMiddleware);
+router.use(authenticateToken);
 router.use(checkSuperadmin);
 
 // Admin: List all registered users and their organizations
