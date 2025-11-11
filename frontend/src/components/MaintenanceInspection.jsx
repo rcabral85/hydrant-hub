@@ -106,9 +106,10 @@ const MaintenanceInspection = () => {
         formData.append('inspection_photos', photo);
       });
       formData.append('hydrant_id', hydrantId);
-      await API.post(`/maintenance/inspections/${inspectionId || 'new'}/workflow`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+     await API.post('/maintenance/inspections', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+
       alert('Inspection submitted successfully!');
       setCurrentStep(1);
       setPhotos([]);
