@@ -7,12 +7,15 @@ const { db } = require('../config/database');
 const Joi = require('joi');
 const bcrypt = require('bcrypt');
 
+const ORG_TYPES = ['municipality', 'fire_department', 'contractor', 'utility'];
+
 const orgSignupSchema = Joi.object({
   organization_name: Joi.string().min(2).max(255).required(),
   admin_email: Joi.string().email().required(),
   admin_password: Joi.string().min(8).max(50).required(),
   admin_first_name: Joi.string().max(100).required(),
-  admin_last_name: Joi.string().max(100).required()
+  admin_last_name: Joi.string().max(100).required(),
+  organization_type: Joi.string().valid(...ORG_TYPES).default('contractor')
 });
 
 router.post('/signup', async (req, res) => {
@@ -53,12 +56,13 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Insert org
+    // Insert org (dynamic type)
+    const orgType = value.organization_type || 'contractor';
     const orgResult = await db.query(
       `INSERT INTO organizations (id, name, type, contact_email) 
-       VALUES (uuid_generate_v4(), $1, 'CLIENT', $2) 
-       RETURNING id, name`,
-      [value.organization_name, value.admin_email]
+       VALUES (uuid_generate_v4(), $1, $2, $3) 
+       RETURNING id, name, type`,
+      [value.organization_name, orgType, value.admin_email]
     );
     const orgId = orgResult.rows[0].id;
     
@@ -85,26 +89,14 @@ router.post('/signup', async (req, res) => {
     });
   } catch (e) {
     console.error('Signup error:', e);
-    
     // Provide more specific error messages
     if (e.code === '23505') { // Unique violation
-      return res.status(409).json({ 
-        success: false, 
-        error: 'This email or username is already registered' 
-      });
+      return res.status(409).json({ success: false, error: 'This email or username is already registered' });
     }
-    
     if (e.message && e.message.includes('uuid_generate_v4')) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Database configuration error. Please contact support.' 
-      });
+      return res.status(500).json({ success: false, error: 'Database configuration error. Please contact support.' });
     }
-    
-    res.status(500).json({ 
-      success: false, 
-      error: 'Registration failed. Please try again later.' 
-    });
+    res.status(500).json({ success: false, error: 'Registration failed. Please try again later.' });
   }
 });
 
