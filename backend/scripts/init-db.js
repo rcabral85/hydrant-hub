@@ -6,6 +6,7 @@ const { db } = require('../config/database');
 /**
  * Initialize database with Railway-compatible schema
  * This script runs the schema-railway.sql file which doesn't use PostGIS
+ * Modified to be idempotent - safe to run multiple times
  */
 async function initializeDatabase() {
   console.log('📦 Initializing HydrantHub Database...');
@@ -20,6 +21,37 @@ async function initializeDatabase() {
     }
     
     console.log(`✅ Database connected: ${health.version}`);
+    
+    // Check if tables already exist
+    const tablesResult = await db.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('organizations', 'users', 'hydrants', 'flow_tests', 'inspections')
+      ORDER BY table_name;
+    `);
+    
+    const existingTables = tablesResult.rows.map(row => row.table_name);
+    
+    if (existingTables.length > 0) {
+      console.log('📋 Database already initialized with tables:', existingTables.join(', '));
+      
+      // Check if sample data exists
+      const orgCount = await db.query('SELECT COUNT(*) FROM organizations');
+      const userCount = await db.query('SELECT COUNT(*) FROM users');
+      const hydrantCount = await db.query('SELECT COUNT(*) FROM hydrants');
+      
+      console.log('📈 Current data status:');
+      console.log(`  - Organizations: ${orgCount.rows[0].count}`);
+      console.log(`  - Users: ${userCount.rows[0].count}`);
+      console.log(`  - Hydrants: ${hydrantCount.rows[0].count}`);
+      
+      console.log('✅ Database initialization skipped - already initialized');
+      return;
+    }
+    
+    // Tables don't exist, run the schema
+    console.log('🆕 Fresh database detected - running schema initialization...');
     
     // Read the Railway-compatible schema
     const schemaPath = path.join(__dirname, '../sql/schema-railway.sql');
@@ -38,7 +70,7 @@ async function initializeDatabase() {
     console.log('✅ Database schema applied successfully');
     
     // Verify tables were created
-    const tablesResult = await db.query(`
+    const newTablesResult = await db.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
@@ -46,16 +78,16 @@ async function initializeDatabase() {
     `);
     
     console.log('📋 Created tables:');
-    tablesResult.rows.forEach(row => {
+    newTablesResult.rows.forEach(row => {
       console.log(`  - ${row.table_name}`);
     });
     
-    // Check if sample data exists
+    // Check if sample data was inserted
     const orgCount = await db.query('SELECT COUNT(*) FROM organizations');
     const userCount = await db.query('SELECT COUNT(*) FROM users');
     const hydrantCount = await db.query('SELECT COUNT(*) FROM hydrants');
     
-    console.log('📈 Sample data status:');
+    console.log('📈 Sample data inserted:');
     console.log(`  - Organizations: ${orgCount.rows[0].count}`);
     console.log(`  - Users: ${userCount.rows[0].count}`);
     console.log(`  - Hydrants: ${hydrantCount.rows[0].count}`);
