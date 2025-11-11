@@ -129,8 +129,8 @@ function Register() {
       
       if (!formData.password) {
         errors.password = 'Password is required';
-      } else if (formData.password.length < 6) {
-        errors.password = 'Password must be at least 6 characters';
+      } else if (formData.password.length < 8) {
+        errors.password = 'Password must be at least 8 characters';
       }
       
       if (!formData.confirmPassword) {
@@ -173,35 +173,21 @@ function Register() {
     setError('');
 
     try {
-      // Step 1: Create organization
-      const orgResponse = await axios.post(`${API_URL}/api/admin/organizations`, {
-        name: formData.organizationName,
-        type: formData.organizationType,
-        address: formData.organizationAddress || null,
-        contact_phone: formData.organizationPhone || null,
-        contact_email: formData.organizationEmail || null
+      // Use the org-signup endpoint that creates both org and user in one transaction
+      const response = await axios.post(`${API_URL}/api/org-signup/signup`, {
+        organization_name: formData.organizationName,
+        admin_email: formData.email,
+        admin_password: formData.password,
+        admin_first_name: formData.firstName,
+        admin_last_name: formData.lastName
       });
 
-      const organizationId = orgResponse.data.organization.id;
-
-      // Step 2: Register user with organization_id
-      const userResponse = await axios.post(`${API_URL}/api/auth/register`, {
-        organization_id: organizationId,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone || null,
-        role: formData.role
-      });
-
-      if (userResponse.data.success) {
+      if (response.data.success) {
         setSuccess(true);
         setTimeout(() => {
           navigate('/login', { 
             state: { 
-              message: 'Account created successfully! Please sign in.' 
+              message: 'Account created successfully! Please sign in with your email and password.' 
             } 
           });
         }, 2000);
@@ -558,7 +544,7 @@ function Register() {
                     value={formData.password}
                     onChange={handleChange}
                     error={!!formErrors.password}
-                    helperText={formErrors.password || 'At least 6 characters'}
+                    helperText={formErrors.password || 'At least 8 characters'}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
