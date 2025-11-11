@@ -69,8 +69,8 @@ export default function Navigation() {
             <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
             <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
             <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
-            {/* Admin link, only if user is admin */}
-            {user && user.role === 'admin' && (
+            {/* Admin link - only show if user is superadmin */}
+            {user && user.role === 'superadmin' && (
               <NavButton to="/admin" label="Admin" active={path.startsWith('/admin')} />
             )}
             <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
