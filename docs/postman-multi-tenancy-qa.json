@@ -1,0 +1,107 @@
+{
+  "info": {
+    "_postman_id": "b9375ae5-6ad0-4bf3-9a6f-39e7bbd5d0f2",
+    "name": "HydrantHub Multi-Tenancy QA",
+    "description": "Postman collection to test multi-org isolation and endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login (Admin Org1)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"admin1@example.com\",\n  \"password\": \"XXXXXXXX\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Login (Admin Org2)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"admin2@example.com\",\n  \"password\": \"XXXXXXXX\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "List Hydrants (Org1)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{jwtAdminOrg1}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/hydrants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "hydrants"]
+        }
+      }
+    },
+    {
+      "name": "List Hydrants (Org2)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{jwtAdminOrg2}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/hydrants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "hydrants"]
+        }
+      }
+    },
+    {
+      "name": "List Work Orders (Org1)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{jwtAdminOrg1}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/work-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "work-orders"]
+        }
+      }
+    },
+    {
+      "name": "List Work Orders (Org2)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{jwtAdminOrg2}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/work-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "work-orders"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "jwtAdminOrg1", "value": "" },
+    { "key": "jwtAdminOrg2", "value": "" }
+  ]
+}
