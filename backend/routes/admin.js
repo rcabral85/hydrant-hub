@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const ensureAdmin = require('../middleware/admin');
+const authMiddleware = require('../middleware/auth');
+const checkSuperadmin = require('../middleware/checkSuperadmin');
+
+// Protect all admin routes with both auth and superadmin check
+router.use(authMiddleware);
+router.use(checkSuperadmin);
 
 // Admin: List all registered users and their organizations
-router.get('/users', ensureAdmin, async (req, res) => {
+router.get('/users', async (req, res) => {
   try {
     const users = await db.query(`
       SELECT 
@@ -28,7 +33,7 @@ router.get('/users', ensureAdmin, async (req, res) => {
 });
 
 // Admin: List all registered organizations
-router.get('/organizations', ensureAdmin, async (req, res) => {
+router.get('/organizations', async (req, res) => {
   try {
     const orgs = await db.query(`
       SELECT 
