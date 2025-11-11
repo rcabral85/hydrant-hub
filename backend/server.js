@@ -14,9 +14,15 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration - updated to include new domain
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'https://hydranthub.tridentsys.ca', 'http://localhost:5173', 'https://stunning-cascaron-f49a60.netlify.app', 'https://app.tridentsys.ca'],
+  origin: process.env.CORS_ORIGIN?.split(',') || [
+    'https://hydranthub.tridentsys.ca',
+    'https://app.tridentsys.ca',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://stunning-cascaron-f49a60.netlify.app'
+  ],
   credentials: true,
   optionsSuccessStatus: 200
 };
