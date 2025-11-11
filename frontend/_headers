@@ -4,6 +4,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-XSS-Protection: 1; mode=block
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https://tridentsys-production.up.railway.app https://app.tridentsys.ca http://localhost:3001 https://www.google-analytics.com https://analytics.google.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google-analytics.com https://analytics.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-ancestors 'none'
   
   # Caching Headers
   Cache-Control: public, max-age=31536000, immutable
