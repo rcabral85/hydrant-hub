@@ -63,6 +63,7 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/api/health',
       auth: '/api/auth',
+      signup: '/api/org-signup',
       hydrants: '/api/hydrants',
       tests: '/api/tests',
       flow_tests: '/api/flow-tests',
@@ -81,6 +82,7 @@ app.get('/api', (req, res) => {
     endpoints: {
       '/api/health': 'Health check and system status',
       '/api/auth': 'Authentication and user management',
+      '/api/org-signup': 'Organization registration and account creation',
       '/api/hydrants': 'Hydrant inventory and management',
       '/api/tests': 'Flow test data and NFPA 291 calculations (alias)',
       '/api/flow-tests': 'Flow test data and NFPA 291 calculations',
@@ -130,6 +132,8 @@ app.use('*', (req, res) => {
       'GET /api/health',
       'GET /api/debug/schema',
       'POST /api/auth/login',
+      'POST /api/auth/register',
+      'POST /api/org-signup/signup',
       'GET /api/hydrants',
       'GET /api/tests',
       'GET /api/flow-tests'
