@@ -36,7 +36,8 @@ import {
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Use VITE_API_URL for Vite projects (not REACT_APP_API_URL)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function Register() {
   const navigate = useNavigate();
@@ -173,7 +174,7 @@ function Register() {
     setError('');
 
     try {
-      // Use the org-signup endpoint that creates both org and user in one transaction
+      // Use the org-signup endpoint - API_URL already includes the base URL
       const response = await axios.post(`${API_URL}/api/org-signup/signup`, {
         organization_name: formData.organizationName,
         admin_email: formData.email,
