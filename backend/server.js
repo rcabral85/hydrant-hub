@@ -14,14 +14,15 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration - updated to include new domain
+// CORS configuration - explicit whitelist for new backend
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || [
+  origin: [
     'https://hydranthub.tridentsys.ca',
     'https://app.tridentsys.ca',
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://stunning-cascaron-f49a60.netlify.app'
+    'https://stunning-cascaron-f49a60.netlify.app',
+    'https://hydrant-hub-production.up.railway.app' // NEW: allow backend domain
   ],
   credentials: true,
   optionsSuccessStatus: 200
