@@ -23,7 +23,7 @@ export default function Navigation() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const onLogout = () => {
@@ -33,7 +33,6 @@ export default function Navigation() {
 
   const handleMobileMenuToggle = () => {
     setMobileMenuOpen(!mobileMenuOpen);
-    // Trigger the mobile navigation JavaScript
     const event = new CustomEvent('mobile-nav-toggle');
     document.dispatchEvent(event);
   };
@@ -70,6 +69,10 @@ export default function Navigation() {
             <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
             <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
             <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
+            {/* Admin link, only if user is admin */}
+            {user && user.role === 'admin' && (
+              <NavButton to="/admin" label="Admin" active={path.startsWith('/admin')} />
+            )}
             <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
               Trident Site
             </Button>
