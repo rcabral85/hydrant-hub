@@ -91,24 +91,49 @@ const MaintenanceInspection = () => {
   };
 
   const submitInspection = async () => {
-    try {
-      setLoading(true);
-      const formData = new FormData();
-      Object.keys(inspectionData).forEach(key => {
-        formData.append(key, inspectionData[key]);
-      });
-      if (gpsLocation) {
-        formData.append('inspector_gps_lat', gpsLocation.lat);
-        formData.append('inspector_gps_lng', gpsLocation.lng);
-        formData.append('gps_accuracy', gpsLocation.accuracy);
-      }
-      photos.forEach(photo => {
-        formData.append('inspection_photos', photo);
-      });
-      formData.append('hydrant_id', hydrantId);
-     await API.post('/maintenance/inspections', formData, {
-  headers: { 'Content-Type': 'multipart/form-data' }
-});
+  try {
+    setLoading(true);
+    
+    const formData = new FormData();
+    Object.keys(inspectionData).forEach(key => {
+      formData.append(key, inspectionData[key]);
+    });
+    
+    if (gpsLocation) {
+      formData.append('inspector_gps_lat', gpsLocation.lat);
+      formData.append('inspector_gps_lng', gpsLocation.lng);
+      formData.append('gps_accuracy', gpsLocation.accuracy);
+    }
+    
+    photos.forEach(photo => {
+      formData.append('inspection_photos', photo);
+    });
+    
+    formData.append('hydrant_id', hydrantId);
+    
+    // Actually wait for the response and check if it succeeded
+    const response = await API.post('/maintenance/inspections', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    // Only show success if we got a 200/201 response
+    if (response.status === 200 || response.status === 201) {
+      alert('Inspection submitted successfully!');
+      setCurrentStep(1);
+      setPhotos([]);
+      // Navigate back to the map or hydrant detail page
+      navigate(`/map`);
+    }
+  } catch (error) {
+    console.error('Error submitting inspection:', error);
+    // Show the actual error from the server
+    const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to submit inspection.';
+    alert(`ERROR: ${errorMessage}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
       alert('Inspection submitted successfully!');
       setCurrentStep(1);
