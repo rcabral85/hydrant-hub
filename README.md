@@ -2,7 +2,7 @@
 
 *Fire hydrant flow testing and management platform built by water operators for water operators*
 
-[![GitHub Stars](https://img.shields.io/github/stars/rcabral85/hydrant-management)](https://github.com/rcabral85/hydrant-management/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/rcabral85/hydrant-hub)](https://github.com/rcabral85/hydrant-hub/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
@@ -25,14 +25,38 @@ HydrantHub eliminates the tedious spreadsheets and outdated desktop software tha
 - Node.js 18+ and npm
 - PostgreSQL 14+ with PostGIS extension
 - Git
+- Docker (optional, for easy setup)
 
-### 1. Clone the Repository
+### Option 1: Docker Setup (Recommended)
 ```bash
-git clone https://github.com/rcabral85/hydrant-management.git
-cd hydrant-management
+# Clone the repository
+git clone https://github.com/rcabral85/hydrant-hub.git
+cd hydrant-hub
+
+# Start all services with Docker Compose
+docker-compose up
+
+# Visit http://localhost:5173 for frontend
+# API available at http://localhost:5002
 ```
 
-### 2. Backend Setup
+### Option 2: Manual Setup
+
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/rcabral85/hydrant-hub.git
+cd hydrant-hub
+```
+
+#### 2. Database Setup
+```bash
+# Create database and load schema
+psql -U postgres -c "CREATE DATABASE hydrantdb;"
+psql -U postgres -d hydrantdb -c "CREATE EXTENSION postgis;"
+psql -U postgres -d hydrantdb -f database/schema.sql
+```
+
+#### 3. Backend Setup
 ```bash
 cd backend
 npm install
@@ -45,22 +69,16 @@ cp .env.example .env
 npm run dev
 ```
 
-### 3. Frontend Setup
+#### 4. Frontend Setup
 ```bash
 cd frontend
 npm install
-npm start
+
+# Start Vite dev server
+npm run dev
 ```
 
-### 4. Database Setup
-```bash
-# Create database and load schema
-psql -U postgres -c "CREATE DATABASE hydrantdb;"
-psql -U postgres -d hydrantdb -c "CREATE EXTENSION postgis;"
-psql -U postgres -d hydrantdb -f database/schema.sql
-```
-
-**🎉 Visit http://localhost:3000 to see HydrantHub running locally!**
+**🎉 Visit http://localhost:5173 to see HydrantHub running locally!**
 
 ---
 
@@ -96,7 +114,7 @@ psql -U postgres -d hydrantdb -f database/schema.sql
 - **bcrypt** - Password hashing
 
 ### Frontend
-- **React 18** - Modern UI framework
+- **React 18 + Vite** - Modern UI framework with fast HMR
 - **Material-UI (MUI)** - Professional component library
 - **Leaflet Maps** - Interactive mapping with custom markers
 - **Chart.js** - Water supply curve visualization
@@ -111,7 +129,7 @@ psql -U postgres -d hydrantdb -f database/schema.sql
 ### DevOps
 - **Docker** - Containerized deployments
 - **GitHub Actions** - CI/CD pipeline
-- **DigitalOcean** - Cloud hosting (recommended)
+- **Railway** - Cloud hosting
 - **Cloudflare** - CDN and security
 
 ---
@@ -233,6 +251,8 @@ We welcome contributions from the water utility and fire safety community!
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 ---
 
 ## 📄 License
@@ -243,7 +263,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support & Contact
 
-- **GitHub Issues**: [Report bugs and request features](https://github.com/rcabral85/hydrant-management/issues)
+- **GitHub Issues**: [Report bugs and request features](https://github.com/rcabral85/hydrant-hub/issues)
 - **Email**: support@tridentsys.ca
 - **Website**: https://tridentsys.ca
 - **LinkedIn**: Connect with the development team
