@@ -25,14 +25,38 @@ HydrantHub eliminates the tedious spreadsheets and outdated desktop software tha
 - Node.js 18+ and npm
 - PostgreSQL 14+ with PostGIS extension
 - Git
+- Docker (optional, for easy setup)
 
-### 1. Clone the Repository
+### Option 1: Docker Setup (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/rcabral85/hydrant-hub.git
+cd hydrant-hub
+
+# Start all services with Docker Compose
+docker-compose up
+
+# Visit http://localhost:5173 for frontend
+# API available at http://localhost:5002
+```
+
+### Option 2: Manual Setup
+
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/rcabral85/hydrant-hub.git
 cd hydrant-hub
 ```
 
-### 2. Backend Setup
+#### 2. Database Setup
+```bash
+# Create database and load schema
+psql -U postgres -c "CREATE DATABASE hydrantdb;"
+psql -U postgres -d hydrantdb -c "CREATE EXTENSION postgis;"
+psql -U postgres -d hydrantdb -f database/schema.sql
+```
+
+#### 3. Backend Setup
 ```bash
 cd backend
 npm install
@@ -45,22 +69,16 @@ cp .env.example .env
 npm run dev
 ```
 
-### 3. Frontend Setup
+#### 4. Frontend Setup
 ```bash
 cd frontend
 npm install
-npm start
+
+# Start Vite dev server
+npm run dev
 ```
 
-### 4. Database Setup
-```bash
-# Create database and load schema
-psql -U postgres -c "CREATE DATABASE hydrantdb;"
-psql -U postgres -d hydrantdb -c "CREATE EXTENSION postgis;"
-psql -U postgres -d hydrantdb -f database/schema.sql
-```
-
-**🎉 Visit http://localhost:3000 to see HydrantHub running locally!**
+**🎉 Visit http://localhost:5173 to see HydrantHub running locally!**
 
 ---
 
@@ -96,7 +114,7 @@ psql -U postgres -d hydrantdb -f database/schema.sql
 - **bcrypt** - Password hashing
 
 ### Frontend
-- **React 18** - Modern UI framework
+- **React 18 + Vite** - Modern UI framework with fast HMR
 - **Material-UI (MUI)** - Professional component library
 - **Leaflet Maps** - Interactive mapping with custom markers
 - **Chart.js** - Water supply curve visualization
@@ -232,6 +250,8 @@ We welcome contributions from the water utility and fire safety community!
 4. Commit your changes (`git commit -m 'Add amazing feature'`)
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
