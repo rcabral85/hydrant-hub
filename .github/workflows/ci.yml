@@ -92,7 +92,7 @@ jobs:
         working-directory: ./frontend
         run: npm run build
         env:
-          REACT_APP_API_URL: http://localhost:5002
+          VITE_API_URL: http://localhost:5002
 
   # Docker build test
   docker:
