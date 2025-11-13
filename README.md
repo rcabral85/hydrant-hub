@@ -2,7 +2,7 @@
 
 *Fire hydrant flow testing and management platform built by water operators for water operators*
 
-[![GitHub Stars](https://img.shields.io/github/stars/rcabral85/hydrant-management)](https://github.com/rcabral85/hydrant-management/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/rcabral85/hydrant-hub)](https://github.com/rcabral85/hydrant-hub/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
@@ -28,8 +28,8 @@ HydrantHub eliminates the tedious spreadsheets and outdated desktop software tha
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/rcabral85/hydrant-management.git
-cd hydrant-management
+git clone https://github.com/rcabral85/hydrant-hub.git
+cd hydrant-hub
 ```
 
 ### 2. Backend Setup
@@ -111,7 +111,7 @@ psql -U postgres -d hydrantdb -f database/schema.sql
 ### DevOps
 - **Docker** - Containerized deployments
 - **GitHub Actions** - CI/CD pipeline
-- **DigitalOcean** - Cloud hosting (recommended)
+- **Railway** - Cloud hosting
 - **Cloudflare** - CDN and security
 
 ---
@@ -243,7 +243,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support & Contact
 
-- **GitHub Issues**: [Report bugs and request features](https://github.com/rcabral85/hydrant-management/issues)
+- **GitHub Issues**: [Report bugs and request features](https://github.com/rcabral85/hydrant-hub/issues)
 - **Email**: support@tridentsys.ca
 - **Website**: https://tridentsys.ca
 - **LinkedIn**: Connect with the development team
