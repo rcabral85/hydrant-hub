@@ -34,7 +34,14 @@ export default function Navigation({ onLogout }) {
   const isMobile = window.innerWidth < 960;
   const isAdmin = user?.role === 'admin';
   const isSuperadmin = user?.is_superadmin === true;
+const handleLogout = () => {
+  localStorage.removeItem('hydrantHub_token');
+  localStorage.removeItem('hydrantHub_user');
+  navigate('/login');
+  if (onLogout) onLogout(); // Call parent handler if provided
+};
 
+const handleHydrantsMenuOpen = (event) => {
   const handleHydrantsMenuOpen = (event) => {
     setHydrantsMenuAnchor(event.currentTarget);
   };
@@ -128,9 +135,11 @@ export default function Navigation({ onLogout }) {
           </Box>
         )}
 
-        <Button color="inherit" onClick={onLogout} sx={{ ml: 1 }}>
-          Logout
-        </Button>
+        <Button color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
+  Logout
+</Button>
+
+      
       </Toolbar>
 
       {/* Mobile Drawer Menu */}
@@ -208,9 +217,15 @@ export default function Navigation({ onLogout }) {
             <ListItem button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener">
               <ListItemText primary="Trident Site" />
             </ListItem>
+
+            <Divider />
+
+            {/* Logout */}
+            <ListItem button onClick={handleLogout}>
+              <ListItemText primary="Logout" sx={{ color: 'error.main' }} />
+            </ListItem>
           </List>
         </Box>
       </Drawer>
     </AppBar>
   );
-}
