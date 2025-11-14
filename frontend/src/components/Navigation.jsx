@@ -5,6 +5,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import { useAuth } from '../contexts/AuthContext';
+
 const logoUrl = '/trident-icon.png';
 
 // Reusable nav button component for consistency
@@ -34,14 +35,14 @@ export default function Navigation({ onLogout }) {
   const isMobile = window.innerWidth < 960;
   const isAdmin = user?.role === 'admin';
   const isSuperadmin = user?.is_superadmin === true;
-const handleLogout = () => {
-  localStorage.removeItem('hydrantHub_token');
-  localStorage.removeItem('hydrantHub_user');
-  navigate('/login');
-  if (onLogout) onLogout(); // Call parent handler if provided
-};
 
-const handleHydrantsMenuOpen = (event) => {
+  const handleLogout = () => {
+    localStorage.removeItem('hydrantHub_token');
+    localStorage.removeItem('hydrantHub_user');
+    navigate('/login');
+    if (onLogout) onLogout();
+  };
+
   const handleHydrantsMenuOpen = (event) => {
     setHydrantsMenuAnchor(event.currentTarget);
   };
@@ -136,10 +137,8 @@ const handleHydrantsMenuOpen = (event) => {
         )}
 
         <Button color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
-  Logout
-</Button>
-
-      
+          Logout
+        </Button>
       </Toolbar>
 
       {/* Mobile Drawer Menu */}
@@ -229,3 +228,4 @@ const handleHydrantsMenuOpen = (event) => {
       </Drawer>
     </AppBar>
   );
+}
