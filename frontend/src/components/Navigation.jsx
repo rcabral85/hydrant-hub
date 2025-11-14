@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Avatar } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Avatar, Menu, MenuItem } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
+import { ExpandMore } from '@mui/icons-material';
 
 function NavButton({ to, label, active }) {
   return (
@@ -25,11 +26,11 @@ export default function Navigation() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hydrantsMenuAnchor, setHydrantsMenuAnchor] = useState(null);
 
   // Determine user permissions
   const isAdmin = user?.role === 'admin' || user?.is_superadmin;
   const isSuperadmin = user?.is_superadmin;
-  const isOperator = user?.role === 'operator';
 
   const onLogout = () => {
     logout();
@@ -40,6 +41,14 @@ export default function Navigation() {
     setMobileMenuOpen(!mobileMenuOpen);
     const event = new CustomEvent('mobile-nav-toggle');
     document.dispatchEvent(event);
+  };
+
+  const handleHydrantsMenuOpen = (event) => {
+    setHydrantsMenuAnchor(event.currentTarget);
+  };
+
+  const handleHydrantsMenuClose = () => {
+    setHydrantsMenuAnchor(null);
   };
 
   const path = location.pathname;
@@ -72,6 +81,32 @@ export default function Navigation() {
             
             {/* Map - Available to all users */}
             <NavButton to="/map" label="Map" active={path.startsWith('/map')} />
+            
+            {/* Hydrants Menu with Dropdown for Admins */}
+            {isAdmin ? (
+              <>
+                <Button
+                  color={path.startsWith('/hydrants') ? 'secondary' : 'inherit'}
+                  sx={{ mx: 0.5, fontWeight: path.startsWith('/hydrants') ? 700 : 500 }}
+                  onClick={handleHydrantsMenuOpen}
+                  endIcon={<ExpandMore />}
+                >
+                  Hydrants
+                </Button>
+                <Menu
+                  anchorEl={hydrantsMenuAnchor}
+                  open={Boolean(hydrantsMenuAnchor)}
+                  onClose={handleHydrantsMenuClose}
+                >
+                  <MenuItem onClick={() => { navigate('/hydrants/new'); handleHydrantsMenuClose(); }}>
+                    Add New Hydrant
+                  </MenuItem>
+                  <MenuItem onClick={() => { navigate('/hydrants/import'); handleHydrantsMenuClose(); }}>
+                    Bulk Import
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : null}
             
             {/* Inspections - Available to all users (operators and admins) */}
             <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
