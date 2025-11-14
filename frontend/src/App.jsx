@@ -16,6 +16,7 @@ import FlowTestForm from './components/FlowTestForm';
 import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
 import HydrantAdd from './components/HydrantAdd';
+import HydrantImport from './components/HydrantImport';
 import MobileInspectionMUI from './components/MobileInspectionMUI';
 import Inspections from './pages/Inspections';
 import AdminDashboard from './pages/AdminDashboard';
@@ -71,6 +72,7 @@ function TitleUpdater() {
       '/reports': 'Reports & Analytics',
       '/hydrants/new': 'Add New Hydrant',
       '/hydrants/edit': 'Edit Hydrant',
+      '/hydrants/import': 'Bulk Import Hydrants',
       '/admin': 'Admin Dashboard'
     };
     
@@ -128,15 +130,16 @@ function AppRoutes() {
       {/* Hydrant Management Routes */}
       <Route path="/hydrants/new" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
+      <Route path="/hydrants/import" element={<ProtectedRoute requireAdmin={true}><HydrantImport /></ProtectedRoute>} />
       
       {/* Maintenance Routes */}
-      <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
+      <Route path="/maintenance" element={<ProtectedRoute requireAdmin={true}><MaintenancePage /></ProtectedRoute>} />
       <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
       <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       
-      {/* Reports Routes */}
-      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      {/* Reports Routes - Admin only */}
+      <Route path="/reports" element={<ProtectedRoute requireAdmin={true}><ReportsPage /></ProtectedRoute>} />
       
       {/* Default Routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
