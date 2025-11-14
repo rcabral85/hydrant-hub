@@ -26,6 +26,11 @@ export default function Navigation() {
   const { logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Determine user permissions
+  const isAdmin = user?.role === 'admin' || user?.is_superadmin;
+  const isSuperadmin = user?.is_superadmin;
+  const isOperator = user?.role === 'operator';
+
   const onLogout = () => {
     logout();
     navigate('/login');
@@ -38,7 +43,6 @@ export default function Navigation() {
   };
 
   const path = location.pathname;
-
   const logoUrl = 'https://tridentsys.ca/trident-logo.png';
 
   return (
@@ -63,16 +67,34 @@ export default function Navigation() {
 
         {!isMobile && (
           <Box>
+            {/* Dashboard - Available to all users */}
             <NavButton to="/dashboard" label="Dashboard" active={path.startsWith('/dashboard')} />
+            
+            {/* Map - Available to all users */}
             <NavButton to="/map" label="Map" active={path.startsWith('/map')} />
-            <NavButton to="/maintenance" label="Maintenance" active={path.startsWith('/maintenance')} />
-            <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
-            <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
+            
+            {/* Inspections - Available to all users (operators and admins) */}
             <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
-            {/* Admin link - only show if user is superadmin */}
-            {user && user.role === 'superadmin' && (
+            
+            {/* Flow Tests - Available to all users (operators and admins) */}
+            <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
+            
+            {/* Maintenance - Admin only */}
+            {isAdmin && (
+              <NavButton to="/maintenance" label="Maintenance" active={path.startsWith('/maintenance')} />
+            )}
+            
+            {/* Reports - Admin only */}
+            {isAdmin && (
+              <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
+            )}
+            
+            {/* Admin Panel - Superadmin only */}
+            {isSuperadmin && (
               <NavButton to="/admin" label="Admin" active={path.startsWith('/admin')} />
             )}
+            
+            {/* External Link */}
             <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
               Trident Site
             </Button>
