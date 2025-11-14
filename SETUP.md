@@ -13,8 +13,8 @@ Get HydrantHub running locally in under 10 minutes!
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/rcabral85/hydrant-management.git
-cd hydrant-management
+git clone https://github.com/rcabral85/hydrant-hub.git
+cd hydrant-hub
 ```
 
 ### 2. Database Setup
@@ -60,8 +60,12 @@ CREATE EXTENSION "uuid-ossp";
 #### Load Database Schema
 
 ```bash
-cd backend
-psql -U hydrantuser -d hydrantdb -f sql/schema.sql
+# From project root
+psql -U hydrantuser -d hydrantdb -f database/schema.sql
+
+# Optional: Apply any migrations
+psql -U hydrantuser -d hydrantdb -f database/migrations/001_add_missing_columns.sql
+psql -U hydrantuser -d hydrantdb -f database/migrations/002_enhance_rbac.sql
 ```
 
 ### 3. Backend Setup
@@ -70,7 +74,7 @@ psql -U hydrantuser -d hydrantdb -f sql/schema.sql
 cd backend
 npm install
 
-# Create environment file
+# Create environment file from example
 cp .env.example .env
 
 # Edit .env with your database credentials
@@ -85,11 +89,15 @@ DB_NAME=hydrantdb
 DB_USER=hydrantuser
 DB_PASSWORD=your_secure_password
 
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters_change_this
+JWT_EXPIRES_IN=24h
+
 PORT=5000
 NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=http://localhost:5173,http://localhost:3000
 ```
+
+See [ENV_VARIABLES.md](./ENV_VARIABLES.md) for complete documentation.
 
 #### Start Backend Server
 
@@ -99,6 +107,8 @@ npm run dev
 
 Backend will be running at `http://localhost:5000`
 
+Verify it's working: `curl http://localhost:5000/api/health`
+
 ### 4. Frontend Setup
 
 ```bash
@@ -106,158 +116,89 @@ cd ../frontend
 npm install
 
 # Create environment file
-echo "VITE_API_BASE_URL=http://localhost:5000/api" > .env
+echo "VITE_API_URL=http://localhost:5000/api" > .env
 
 # Start development server
 npm run dev
 ```
 
-Frontend will be running at `http://localhost:3000`
+Frontend will be running at `http://localhost:5173`
 
-### 5. First Login
+### 5. Create First Account & Promote to Superadmin
 
-The database schema creates a default admin user:
+1. **Register an account:**
+   - Navigate to `http://localhost:5173/register`
+   - Complete organization signup
+   - Create your admin account
+   - Login with your credentials
 
-- **Username:** `admin`
-- **Password:** You'll need to update the password hash in the database
+2. **Promote to superadmin:**
+   ```bash
+   # From project root
+   node promote-superadmin.js your_email@example.com
+   ```
 
-**To set the admin password:**
+3. **Verify superadmin access:**
+   - Logout and login again
+   - You should now see "Admin" in the navigation menu
+   - Navigate to `/admin` to access admin panel
 
-```bash
-node -e "console.log(require('bcrypt').hashSync('your_password', 12))"
-```
-
-Then update the database:
-
-```sql
-UPDATE users SET password_hash = 'your_hashed_password' WHERE username = 'admin';
-```
+---
 
 ## 🚀 Production Deployment
 
-### Environment Variables
+### Railway Backend Deployment
 
-**Backend (.env):**
-```env
-# Database
-DB_HOST=your_db_host
-DB_PORT=5432
-DB_NAME=hydrantdb
-DB_USER=hydrantuser
-DB_PASSWORD=your_secure_password
-DATABASE_URL=postgresql://user:pass@host:port/db  # Alternative to individual vars
+1. **Create new Railway project**
+2. **Add PostgreSQL database**
+3. **Deploy from GitHub:**
+   - Connect your `hydrant-hub` repository
+   - Set root directory to `backend`
+   - Railway will auto-detect Node.js
 
-# Security
-JWT_SECRET=your_very_secure_jwt_secret_minimum_32_characters
-JWT_EXPIRES_IN=24h
+4. **Configure environment variables:**
+   ```env
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   JWT_SECRET=<generate-secure-32-char-secret>
+   JWT_EXPIRES_IN=24h
+   NODE_ENV=production
+   CORS_ORIGIN=https://hydranthub.tridentsys.ca
+   PORT=5000
+   DB_SSL=true
+   ```
 
-# Server
-PORT=5000
-NODE_ENV=production
-CORS_ORIGIN=https://yourdomain.com,https://www.yourdomain.com
+5. **Run database schema:**
+   - Connect to Railway PostgreSQL via CLI
+   - Run: `psql $DATABASE_URL -f database/schema.sql`
 
-# Optional: Email notifications
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-SMTP_FROM=noreply@yourdomain.com
-```
+### Netlify Frontend Deployment
 
-**Frontend (.env):**
-```env
-VITE_API_BASE_URL=https://api.yourdomain.com/api
-```
+1. **Create new Netlify site**
+2. **Connect GitHub repository**
+3. **Configure build settings:**
+   - Base directory: `frontend`
+   - Build command: `npm run build`
+   - Publish directory: `frontend/dist`
 
-### Docker Deployment
+4. **Set environment variables:**
+   ```env
+   VITE_API_URL=https://your-backend.railway.app/api
+   ```
 
-**Backend Dockerfile:**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 5000
-CMD ["npm", "start"]
-```
+5. **Custom domain:**
+   - Add `hydranthub.tridentsys.ca`
+   - Configure DNS records
+   - Enable HTTPS (automatic with Netlify)
 
-**Frontend Dockerfile:**
-```dockerfile
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+### Post-Deployment
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
+1. **Update CORS on backend** to include production frontend URL
+2. **Run database migrations** on production database
+3. **Create your production superadmin account**
+4. **Test complete user flow** (see PRE_LAUNCH_CHECKLIST.md)
+5. **Set up monitoring** and error tracking
 
-**docker-compose.yml:**
-```yaml
-version: '3.8'
-services:
-  postgres:
-    image: postgis/postgis:14-3.2
-    environment:
-      POSTGRES_DB: hydrantdb
-      POSTGRES_USER: hydrantuser
-      POSTGRES_PASSWORD: your_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-    ports:
-      - "5432:5432"
-
-  backend:
-    build: ./backend
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_NAME: hydrantdb
-      DB_USER: hydrantuser
-      DB_PASSWORD: your_password
-      JWT_SECRET: your_jwt_secret
-    ports:
-      - "5000:5000"
-    depends_on:
-      - postgres
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-
-volumes:
-  postgres_data:
-```
-
-### Cloud Deployment Options
-
-#### Railway (Recommended for MVP)
-
-1. **Database:** Use Railway PostgreSQL addon
-2. **Backend:** Deploy from GitHub
-3. **Frontend:** Deploy to Netlify or Vercel
-
-#### DigitalOcean
-
-1. **Database:** Managed PostgreSQL
-2. **Backend:** App Platform
-3. **Frontend:** Static site hosting
-
-#### AWS
-
-1. **Database:** RDS PostgreSQL with PostGIS
-2. **Backend:** Elastic Beanstalk or ECS
-3. **Frontend:** S3 + CloudFront
+---
 
 ## 🔧 Development Workflow
 
@@ -270,142 +211,154 @@ curl http://localhost:5000/api/health
 # Login
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"your_password"}'
+  -d '{"identifier":"your_email@example.com","password":"your_password"}'
 
-# Test NFPA calculator
-curl -X POST http://localhost:5000/api/flow-tests/calculator/test \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "staticPressure": 60,
-    "residualPressure": 40,
-    "outlets": [
-      {"size": 2.5, "pitotPressure": 45},
-      {"size": 2.5, "pitotPressure": 42}
-    ]
-  }'
+# Get dashboard metrics
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:5000/api/dashboard/metrics
 ```
 
 ### Database Migrations
 
 ```bash
 # Backup database
-pg_dump -U hydrantuser hydrantdb > backup.sql
+pg_dump -U hydrantuser hydrantdb > backup_$(date +%Y%m%d).sql
 
-# Apply schema changes
-psql -U hydrantuser -d hydrantdb -f sql/new_migration.sql
+# Apply migration
+psql -U hydrantuser -d hydrantdb -f database/migrations/new_migration.sql
+
+# Verify migration
+psql -U hydrantuser -d hydrantdb -c "\d+ users"
 ```
 
 ### Code Quality
 
 ```bash
 # Backend linting
-cd backend
-npm run lint
+cd backend && npm run lint
 
 # Frontend linting
-cd frontend
-npm run lint
+cd frontend && npm run lint
 
-# Run tests (when implemented)
-npm test
+# Fix linting issues automatically
+npm run lint -- --fix
 ```
+
+---
 
 ## 📊 Monitoring & Maintenance
 
 ### Health Checks
 
-- **Backend:** `GET /api/health`
-- **Database:** Included in health check response
+- **Backend API:** `GET /api/health`
+- **Database connectivity:** Included in health response
 - **Authentication:** `GET /api/auth/me`
 
 ### Logs
 
 **Development:**
 ```bash
-# Backend logs
+# View backend logs
 npm run dev
 
-# Database logs
+# View PostgreSQL logs
 sudo tail -f /var/log/postgresql/postgresql-14-main.log
 ```
 
-**Production:**
-- Use PM2 for process management
-- Centralized logging with Winston + ELK stack
-- Error monitoring with Sentry
+**Production (Railway):**
+- View logs in Railway dashboard
+- Set up log drains for centralized logging
 
 ### Backup Strategy
 
 ```bash
-# Daily backup script
+# Automated daily backups (add to cron)
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 pg_dump -U hydrantuser hydrantdb > /backups/hydrantdb_$DATE.sql
-
-# Keep only last 30 days
 find /backups -name "hydrantdb_*.sql" -mtime +30 -delete
 ```
 
+---
+
 ## 🔒 Security Checklist
 
-### Production Security
+### Before Launch
 
 - [ ] Change all default passwords
 - [ ] Use strong JWT secrets (32+ characters)
 - [ ] Enable HTTPS/TLS
 - [ ] Configure proper CORS origins
-- [ ] Set up rate limiting
-- [ ] Enable database SSL
-- [ ] Regular security updates
-- [ ] Implement proper logging
-- [ ] Use environment variables for secrets
-- [ ] Set up monitoring and alerts
+- [ ] Remove `.env` from Git tracking
+- [ ] Enable database SSL for production
+- [ ] Set up rate limiting (if needed)
+- [ ] Implement proper error logging
+- [ ] Configure firewall rules
+- [ ] Set up automated backups
 
-### Network Security
-
-- [ ] Firewall configuration
-- [ ] VPN for admin access
-- [ ] Database not publicly accessible
-- [ ] Regular penetration testing
+---
 
 ## 🆘 Troubleshooting
 
-### Common Issues
+### Database Connection Failed
 
-**Database Connection Failed:**
 ```bash
-# Check PostgreSQL is running
+# Check PostgreSQL status
 sudo systemctl status postgresql
 
 # Check PostGIS extension
 psql -U hydrantuser -d hydrantdb -c "SELECT PostGIS_Version();"
+
+# Test connection
+psql -U hydrantuser -d hydrantdb
 ```
 
-**CORS Errors:**
+### CORS Errors
+
 - Update `CORS_ORIGIN` in backend `.env`
-- Restart backend server
+- Ensure frontend URL is included
+- Restart backend server: `npm run dev`
 
-**Authentication Issues:**
-- Check JWT secret consistency
-- Verify token expiration settings
-- Clear browser localStorage
+### Authentication Issues
 
-**Build Errors:**
+- Verify JWT secret matches across all backend instances
+- Check token expiration: default is 24h
+- Clear browser localStorage: `localStorage.clear()`
+- Verify user exists and is active in database
+
+### Build Errors
+
 ```bash
-# Clear npm cache
-npm cache clean --force
-
-# Delete node_modules and reinstall
+# Clear caches and reinstall
 rm -rf node_modules package-lock.json
+npm cache clean --force
 npm install
 ```
 
+### Port Already in Use
+
+```bash
+# Find and kill process using port 5000
+lsof -ti:5000 | xargs kill -9
+
+# Or change PORT in backend/.env
+```
+
+---
+
+## 📚 Additional Resources
+
+- **API Documentation:** See [README.md](./README.md)
+- **Pre-Launch Checklist:** [PRE_LAUNCH_CHECKLIST.md](./PRE_LAUNCH_CHECKLIST.md)
+- **Environment Variables:** [ENV_VARIABLES.md](./ENV_VARIABLES.md)
+- **Testing Guide:** [TESTING.md](./TESTING.md)
+- **GitHub Repository:** [github.com/rcabral85/hydrant-hub](https://github.com/rcabral85/hydrant-hub)
+
 ## 📞 Support
 
-- **GitHub Issues:** [Report bugs](https://github.com/rcabral85/hydrant-management/issues)
-- **Email:** support@tridentsys.ca
-- **Documentation:** [Full API docs](./README.md)
+- **GitHub Issues:** [Report bugs](https://github.com/rcabral85/hydrant-hub/issues)
+- **Email:** rcabral85@gmail.com
+- **Website:** [tridentsys.ca](https://tridentsys.ca)
 
 ---
 
