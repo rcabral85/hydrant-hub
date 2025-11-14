@@ -7,12 +7,15 @@ require('dotenv').config();
 
 // Test database connection first
 const { db } = require('./config/database');
+const hydrantImportRoutes = require('./routes/hydrantImport');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
+
 
 // CORS configuration - explicit whitelist for new backend
 const corsOptions = {
@@ -22,10 +25,10 @@ const corsOptions = {
     'http://localhost:3000',
     'http://localhost:5173',
     'https://stunning-cascaron-f49a60.netlify.app',
-    'https://hydrant-hub-production.up.railway.app' // NEW: allow backend domain
+    'https://hydrant-hub-production.up.railway.app', // NEW: allow backend domain
   ],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
@@ -58,8 +61,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/tests', flowTestRoutes); // Alias for flow-tests to match documentation
 app.use('/api/hydrants', hydrantRoutes);
+app.use('/api/hydrants/import', hydrantImportRoutes);  
+app.use('/api/dashboard', dashboardRoutes); 
 app.use('/api/org-signup', orgSignupRoutes);
-
+          
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -74,9 +79,9 @@ app.get('/', (req, res) => {
       hydrants: '/api/hydrants',
       tests: '/api/tests',
       flow_tests: '/api/flow-tests',
-      admin: '/api/admin'
+      admin: '/api/admin',
     },
-    documentation: 'https://github.com/rcabral85/hydrant-management'
+    documentation: 'https://github.com/rcabral85/hydrant-management',
   });
 });
 
@@ -93,8 +98,8 @@ app.get('/api', (req, res) => {
       '/api/hydrants': 'Hydrant inventory and management',
       '/api/tests': 'Flow test data and NFPA 291 calculations (alias)',
       '/api/flow-tests': 'Flow test data and NFPA 291 calculations',
-      '/api/admin': 'Administrative functions'
-    }
+      '/api/admin': 'Administrative functions',
+    },
   });
 });
 
@@ -108,20 +113,20 @@ app.get('/api/debug/schema', async (req, res) => {
       WHERE table_name = 'flow_tests' 
       ORDER BY ordinal_position
     `);
-    
+
     const hydrantCols = await db.query(`
       SELECT column_name, data_type, is_nullable
       FROM information_schema.columns 
       WHERE table_name = 'hydrants' 
       ORDER BY ordinal_position
     `);
-    
+
     res.json({
       success: true,
       tables: {
         flow_tests: flowTestCols.rows,
-        hydrants: hydrantCols.rows
-      }
+        hydrants: hydrantCols.rows,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -143,21 +148,21 @@ app.use('*', (req, res) => {
       'POST /api/org-signup/signup',
       'GET /api/hydrants',
       'GET /api/tests',
-      'GET /api/flow-tests'
-    ]
+      'GET /api/flow-tests',
+    ],
   });
 });
 
 // Global error handler
 app.use((error, req, res, next) => {
   console.error('Unhandled error:', error);
-  
+
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
+
   res.status(error.status || 500).json({
     error: 'Internal Server Error',
     message: isDevelopment ? error.message : 'Something went wrong',
-    ...(isDevelopment && { stack: error.stack })
+    ...(isDevelopment && { stack: error.stack }),
   });
 });
 
