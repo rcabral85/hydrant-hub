@@ -7,6 +7,8 @@ require('dotenv').config();
 
 // Test database connection first
 const { db } = require('./config/database');
+const bulkImportRoutes = require('./routes/bulkImport');
+
 const hydrantImportRoutes = require('./routes/hydrantImport');
 const dashboardRoutes = require('./routes/dashboard');
 
@@ -54,17 +56,22 @@ const flowTestRoutes = require('./routes/flow-tests');
 const hydrantRoutes = require('./routes/hydrants');
 const orgSignupRoutes = require('./routes/org-signup');
 
-// API Routes
-app.use('/api/admin', adminRoutes);
+/// API Routes - Order matters! More specific routes first!
+
+// Public routes (no auth)
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/flow-tests', flowTestRoutes);
-app.use('/api/tests', flowTestRoutes); // Alias for flow-tests to match documentation
-app.use('/api/hydrants', hydrantRoutes);
-app.use('/api/hydrants/import', hydrantImportRoutes);  
-app.use('/api/dashboard', dashboardRoutes); 
 app.use('/api/org-signup', orgSignupRoutes);
-          
+
+// Protected routes (auth required) - specific before general
+app.use('/api/admin', adminRoutes);
+app.use('/api/hydrants/import', bulkImportRoutes); // MUST be before /api/hydrants
+app.use('/api/hydrants', hydrantRoutes);
+app.use('/api/flow-tests', flowTestRoutes);
+app.use('/api/tests', flowTestRoutes); // Alias for flow-tests
+app.use('/api/dashboard', dashboardRoutes);
+
+        
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({

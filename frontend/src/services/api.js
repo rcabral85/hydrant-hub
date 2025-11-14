@@ -17,6 +17,34 @@ const BASE = (() => {
 
 const api = axios.create({ baseURL: BASE });
 
+// Add authentication token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('hydrantHub_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - redirect to login
+      localStorage.removeItem('hydrantHub_token');
+      localStorage.removeItem('hydrantHub_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const listHydrants = async ({ q = '', nfpa_class = '', status = '', page = 1, limit = 100 } = {}) => {
   const params = {};
   if (q) params.q = q;

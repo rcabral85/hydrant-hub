@@ -22,6 +22,8 @@ import Inspections from './pages/Inspections';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import BulkImport from './components/BulkImport';
+
 
 const theme = createTheme({
   palette: {

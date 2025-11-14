@@ -3,6 +3,8 @@ import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBod
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 function AdminDashboard() {
   const { user, isAuthenticated } = useAuth();
   const [tab, setTab] = useState(0);
@@ -14,32 +16,53 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('hydrantHub_token');
-      if (!user || user.role !== 'admin') return;
+      
+      // Check if user is superadmin
+      if (!user || !user.is_superadmin) {
+        setError('Superadmin access required');
+        return;
+      }
+
       setLoading(true);
       setError('');
+
       try {
-        const usersRes = await axios.get('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } });
+        // Fetch users
+        const usersRes = await axios.get(`${API_URL}/admin/users`, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        console.log('Users response:', usersRes.data);
         setUsers(Array.isArray(usersRes.data?.users) ? usersRes.data.users : []);
       } catch (e) {
+        console.error('Error loading users:', e);
         setError(e.response?.data?.error || 'Failed to load users');
         setUsers([]);
       }
+
       try {
-        const orgsRes = await axios.get('/api/admin/organizations', { headers: { Authorization: `Bearer ${token}` } });
+        // Fetch organizations
+        const orgsRes = await axios.get(`${API_URL}/admin/organizations`, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        console.log('Organizations response:', orgsRes.data);
         setOrganizations(Array.isArray(orgsRes.data?.organizations) ? orgsRes.data.organizations : []);
       } catch (e) {
+        console.error('Error loading organizations:', e);
         setError(e.response?.data?.error || 'Failed to load organizations');
         setOrganizations([]);
       }
+
       setLoading(false);
     };
+
     fetchData();
   }, [user]);
 
-  if (!isAuthenticated || !user || user.role !== 'admin') {
+  // Check if user is superadmin
+  if (!isAuthenticated || !user || !user.is_superadmin) {
     return (
       <Container sx={{ mt: 6 }}>
-        <Alert severity="error">You must be an admin to access this page.</Alert>
+        <Alert severity="error">You must be a superadmin to access this page.</Alert>
       </Container>
     );
   }
@@ -48,12 +71,18 @@ function AdminDashboard() {
     <Container maxWidth="lg" sx={{ mt: 6 }}>
       <Paper sx={{ p: 3, boxShadow: 3, borderRadius: 3 }}>
         <Typography variant="h4" fontWeight={600} mb={2}>Admin Dashboard</Typography>
+        <Typography variant="body2" color="text.secondary" mb={3}>
+          Logged in as: {user.email} (Superadmin)
+        </Typography>
+        
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
           <Tab label="Users" />
           <Tab label="Organizations" />
         </Tabs>
-        {error && <Alert severity="error">{error}</Alert>}
-        {loading && <CircularProgress />}
+
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {loading && <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}
+
         {!loading && tab === 0 && (
           <>
             {users.length === 0 && !error ? (
@@ -67,19 +96,21 @@ function AdminDashboard() {
                     <TableCell>Email</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Role</TableCell>
+                    <TableCell>Superadmin</TableCell>
                     <TableCell>Organization</TableCell>
                     <TableCell>Org Type</TableCell>
                     <TableCell>Created At</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(Array.isArray(users) ? users : []).map(u => (
+                  {users.map(u => (
                     <TableRow key={u.id}>
                       <TableCell>{u.id}</TableCell>
                       <TableCell>{u.username}</TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>{u.first_name} {u.last_name}</TableCell>
                       <TableCell>{u.role}</TableCell>
+                      <TableCell>{u.is_superadmin ? 'Yes' : 'No'}</TableCell>
                       <TableCell>{u.organization_name}</TableCell>
                       <TableCell>{u.organization_type}</TableCell>
                       <TableCell>{u.created_at && new Date(u.created_at).toLocaleString()}</TableCell>
@@ -90,6 +121,7 @@ function AdminDashboard() {
             )}
           </>
         )}
+
         {!loading && tab === 1 && (
           <>
             {organizations.length === 0 && !error ? (
@@ -106,7 +138,7 @@ function AdminDashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(Array.isArray(organizations) ? organizations : []).map(o => (
+                  {organizations.map(o => (
                     <TableRow key={o.id}>
                       <TableCell>{o.id}</TableCell>
                       <TableCell>{o.name}</TableCell>

@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Avatar, Menu, MenuItem } from '@mui/material';
+import { useState } from 'react';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { AppBar, Toolbar, Button, Typography, Avatar, Box, IconButton, Menu, MenuItem, Drawer, List, ListItem, ListItemText, Divider, Collapse } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import ExpandLess from '@mui/icons-material/ExpandLess';
 import { useAuth } from '../contexts/AuthContext';
-import { ExpandMore } from '@mui/icons-material';
+const logoUrl = '/trident-icon.png';
 
+// Reusable nav button component for consistency
 function NavButton({ to, label, active }) {
   return (
     <Button
@@ -19,29 +21,19 @@ function NavButton({ to, label, active }) {
   );
 }
 
-export default function Navigation() {
-  const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+export default function Navigation({ onLogout }) {
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const path = location.pathname;
+  const { user } = useAuth();
+  
   const [hydrantsMenuAnchor, setHydrantsMenuAnchor] = useState(null);
-
-  // Determine user permissions
-  const isAdmin = user?.role === 'admin' || user?.is_superadmin;
-  const isSuperadmin = user?.is_superadmin;
-
-  const onLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleMobileMenuToggle = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-    const event = new CustomEvent('mobile-nav-toggle');
-    document.dispatchEvent(event);
-  };
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileHydrantsOpen, setMobileHydrantsOpen] = useState(false);
+  
+  const isMobile = window.innerWidth < 960;
+  const isAdmin = user?.role === 'admin';
+  const isSuperadmin = user?.is_superadmin === true;
 
   const handleHydrantsMenuOpen = (event) => {
     setHydrantsMenuAnchor(event.currentTarget);
@@ -51,8 +43,19 @@ export default function Navigation() {
     setHydrantsMenuAnchor(null);
   };
 
-  const path = location.pathname;
-  const logoUrl = 'https://tridentsys.ca/trident-logo.png';
+  const handleMobileMenuToggle = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleMobileMenuClose = () => {
+    setMobileMenuOpen(false);
+    setMobileHydrantsOpen(false);
+  };
+
+  const handleMobileNavigation = (path) => {
+    navigate(path);
+    handleMobileMenuClose();
+  };
 
   return (
     <AppBar position="static" color="primary" elevation={2}>
@@ -76,13 +79,9 @@ export default function Navigation() {
 
         {!isMobile && (
           <Box>
-            {/* Dashboard - Available to all users */}
             <NavButton to="/dashboard" label="Dashboard" active={path.startsWith('/dashboard')} />
-            
-            {/* Map - Available to all users */}
             <NavButton to="/map" label="Map" active={path.startsWith('/map')} />
             
-            {/* Hydrants Menu with Dropdown for Admins */}
             {isAdmin ? (
               <>
                 <Button
@@ -108,28 +107,21 @@ export default function Navigation() {
               </>
             ) : null}
             
-            {/* Inspections - Available to all users (operators and admins) */}
             <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
-            
-            {/* Flow Tests - Available to all users (operators and admins) */}
             <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
             
-            {/* Maintenance - Admin only */}
             {isAdmin && (
               <NavButton to="/maintenance" label="Maintenance" active={path.startsWith('/maintenance')} />
             )}
             
-            {/* Reports - Admin only */}
             {isAdmin && (
               <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
             )}
             
-            {/* Admin Panel - Superadmin only */}
             {isSuperadmin && (
               <NavButton to="/admin" label="Admin" active={path.startsWith('/admin')} />
             )}
             
-            {/* External Link */}
             <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
               Trident Site
             </Button>
@@ -140,6 +132,85 @@ export default function Navigation() {
           Logout
         </Button>
       </Toolbar>
+
+      {/* Mobile Drawer Menu */}
+      <Drawer
+        anchor="left"
+        open={mobileMenuOpen}
+        onClose={handleMobileMenuClose}
+      >
+        <Box sx={{ width: 250 }} role="presentation">
+          <List>
+            {/* Dashboard */}
+            <ListItem button onClick={() => handleMobileNavigation('/dashboard')}>
+              <ListItemText primary="Dashboard" />
+            </ListItem>
+
+            {/* Map */}
+            <ListItem button onClick={() => handleMobileNavigation('/map')}>
+              <ListItemText primary="Map" />
+            </ListItem>
+
+            {/* Hydrants - Admin only with submenu */}
+            {isAdmin && (
+              <>
+                <ListItem button onClick={() => setMobileHydrantsOpen(!mobileHydrantsOpen)}>
+                  <ListItemText primary="Hydrants" />
+                  {mobileHydrantsOpen ? <ExpandLess /> : <ExpandMore />}
+                </ListItem>
+                <Collapse in={mobileHydrantsOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItem button sx={{ pl: 4 }} onClick={() => handleMobileNavigation('/hydrants/new')}>
+                      <ListItemText primary="Add New Hydrant" />
+                    </ListItem>
+                    <ListItem button sx={{ pl: 4 }} onClick={() => handleMobileNavigation('/hydrants/import')}>
+                      <ListItemText primary="Bulk Import" />
+                    </ListItem>
+                  </List>
+                </Collapse>
+              </>
+            )}
+
+            {/* Inspections */}
+            <ListItem button onClick={() => handleMobileNavigation('/inspections')}>
+              <ListItemText primary="Inspections" />
+            </ListItem>
+
+            {/* Flow Test */}
+            <ListItem button onClick={() => handleMobileNavigation('/flow-test')}>
+              <ListItemText primary="Flow Test" />
+            </ListItem>
+
+            {/* Maintenance - Admin only */}
+            {isAdmin && (
+              <ListItem button onClick={() => handleMobileNavigation('/maintenance')}>
+                <ListItemText primary="Maintenance" />
+              </ListItem>
+            )}
+
+            {/* Reports - Admin only */}
+            {isAdmin && (
+              <ListItem button onClick={() => handleMobileNavigation('/reports')}>
+                <ListItemText primary="Reports" />
+              </ListItem>
+            )}
+
+            {/* Admin - Superadmin only */}
+            {isSuperadmin && (
+              <ListItem button onClick={() => handleMobileNavigation('/admin')}>
+                <ListItemText primary="Admin" />
+              </ListItem>
+            )}
+
+            <Divider />
+
+            {/* External Link */}
+            <ListItem button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener">
+              <ListItemText primary="Trident Site" />
+            </ListItem>
+          </List>
+        </Box>
+      </Drawer>
     </AppBar>
   );
 }

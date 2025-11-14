@@ -1,13 +1,15 @@
-﻿
-/**
+﻿/**
  * Dashboard Metrics Routes
  * Provides real-time metrics from database (no hardcoded data)
  */
 
 const express = require('express');
 const router = express.Router();
-const { operatorOrAdmin } = require('../middleware/roleCheck');
+const { authenticateToken, operatorOrAdmin } = require('../middleware/auth');
 const { db } = require('../config/database');
+
+// Apply authentication to all dashboard routes
+router.use(authenticateToken);
 
 /**
  * GET /api/dashboard/metrics
@@ -16,6 +18,11 @@ const { db } = require('../config/database');
 router.get('/metrics', operatorOrAdmin, async (req, res) => {
   try {
     const organizationId = req.user.organization_id;
+    
+    console.log('=== DASHBOARD DEBUG ===');
+    console.log('Organization ID:', organizationId);
+    console.log('db type:', typeof db);
+    console.log('db.query type:', typeof db.query);
 
     // Get hydrant statistics
     const hydrantStats = await db.query(
@@ -29,6 +36,10 @@ router.get('/metrics', operatorOrAdmin, async (req, res) => {
       WHERE organization_id = $1`,
       [organizationId],
     );
+    
+    console.log('hydrantStats.rows:', hydrantStats.rows);
+    console.log('hydrantStats.rows[0]:', hydrantStats.rows[0]);
+
 
     // Get NFPA class distribution
     const nfpaDistribution = await db.query(

@@ -7,7 +7,25 @@ import {
 } from '@mui/material';
 import { CloudUpload, CheckCircle, Error, Warning, Visibility, History } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
-import api from '../services/api';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance with authentication
+const api = axios.create({
+  baseURL: API_URL
+});
+
+// Add token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('hydrantHub_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  console.log('Bulk import request with token:', token ? 'YES' : 'NO');
+  return config;
+});
+
 
 export default function HydrantImport() {
   const [activeStep, setActiveStep] = useState(0);

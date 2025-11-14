@@ -7,7 +7,8 @@ const checkSuperadmin = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.user.role !== 'superadmin') {
+  // Check the is_superadmin boolean flag (not role)
+  if (req.user.is_superadmin !== true) {
     return res.status(403).json({
       error: 'Access denied. Superadmin privileges required.'
     });
