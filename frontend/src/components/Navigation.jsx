@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import tridentLogo from '/trident-logo.png';
 import {
   AppBar,
   Toolbar,
@@ -101,7 +102,7 @@ const Navigation = () => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <img 
-            src="/trident-logo.png" 
+            src={tridentLogo} 
             alt="HydrantHub Logo" 
             style={{ height: '32px', width: '32px' }}
           />
@@ -247,7 +248,7 @@ const Navigation = () => {
           {/* Logo and Title */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
             <img 
-              src="/trident-logo.png" 
+              src={tridentLogo} 
               alt="HydrantHub Logo" 
               style={{ height: '32px', width: '32px' }}
             />
