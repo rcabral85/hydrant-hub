@@ -15,7 +15,18 @@ const BASE = (() => {
   }
 })();
 
-const api = axios.create({ baseURL: BASE });
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api'
+});
+
+// Add token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 export const listHydrants = async ({ q = '', nfpa_class = '', status = '', page = 1, limit = 100 } = {}) => {
   const params = {};
@@ -39,7 +50,7 @@ export const updateHydrant = async (id, payload) => {
 };
 
 export const deleteHydrant = async (id) => {
-  const res = await api.delete(`/hydrants/${id}`);
+  const res = await api.delete(`/hydrants/${id}`, payload);
   return res.data;
 };
 

@@ -17,7 +17,6 @@ import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
 import HydrantAdd from './components/HydrantAdd';
 import MobileInspectionMUI from './components/MobileInspectionMUI';
-import Inspections from './pages/Inspections';
 import AdminDashboard from './pages/AdminDashboard';
 import './App.css';
 
@@ -131,7 +130,6 @@ function AppRoutes() {
       <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
-      <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
       <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       {/* Reports Routes */}

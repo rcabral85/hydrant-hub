@@ -1,7 +1,39 @@
 /* Global styles with mobile-friendly defaults */
 :root {
-  --spacing: 8px;
+  /* HydrantHub Primary Colors - Match tridentsys-website */
+  --primary-blue: #1e3c72;
+  --primary-light: #4a6bb5;
+  --primary-dark: #0a1929;
+  
+  /* Accent Colors */
+  --accent-blue: #667eea;
+  --accent-dark-blue: #5a6fd8;
+  --accent-light-blue: #7c8eec;
+  
+  /* Neutral Colors */
+  --secondary-steel: #475569;
+  --accent-silver: #64748b;
+  --light-gray: #f8fafc;
+  --medium-gray: #e2e8f0;
+  --dark-gray: #334155;
+  
+  /* Status Colors */
+  --success-green: #059669;
+  --success-light: #d1fae5;
+  --warning-orange: #f59e0b;
+  --error-red: #dc2626;
+  
+  /* Text Colors */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  
+  /* NFPA 291 Flow Rating Colors */
+  --nfpa-excellent: #00ff00;
+  --nfpa-good: #90ee90;
+  --nfpa-fair: #ffff00;
+  --nfpa-poor: #ff6b35;
 }
+
 
 html, body, #root {
   height: 100%;

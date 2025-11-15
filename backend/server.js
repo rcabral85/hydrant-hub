@@ -7,6 +7,7 @@ require('dotenv').config();
 
 // Test database connection first
 const { db } = require('./config/database');
+const { authenticateToken } = require('./middleware/auth'); // ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -58,7 +59,154 @@ app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/tests', flowTestRoutes); // Alias for flow-tests to match documentation
 app.use('/api/hydrants', hydrantRoutes);
 app.use('/api/org-signup', orgSignupRoutes);
+// ==================== Maintenance Routes ====================
 
+app.get('/api/maintenance', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
+    const organizationId = user.rows[0].organization_id;
+
+    const result = await db.query(`
+      SELECT m.*, h.hydrant_id, h.location
+      FROM maintenance m
+      JOIN hydrants h ON m.hydrant_id = h.id
+      WHERE h.organization_id = $1
+      ORDER BY m.scheduled_date DESC
+    `, [organizationId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching maintenance records:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/maintenance/inspections', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
+    const organizationId = user.rows[0].organization_id;
+
+    const result = await db.query(`
+      SELECT m.*, h.hydrant_id, h.location
+      FROM maintenance m
+      JOIN hydrants h ON m.hydrant_id = h.id
+      WHERE h.organization_id = $1 
+      AND m.maintenance_type = 'inspection'
+      ORDER BY m.scheduled_date DESC
+    `, [organizationId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching inspections:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/maintenance/work-orders', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
+    const organizationId = user.rows[0].organization_id;
+
+    const result = await db.query(`
+      SELECT m.*, h.hydrant_id, h.location
+      FROM maintenance m
+      JOIN hydrants h ON m.hydrant_id = h.id
+      WHERE h.organization_id = $1 
+      AND m.maintenance_type IN ('repair', 'painting', 'lubrication', 'winterization', 'other')
+      ORDER BY m.scheduled_date DESC
+    `, [organizationId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching work orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/maintenance/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
+    const organizationId = user.rows[0].organization_id;
+
+    const stats = await db.query(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled,
+        SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+      FROM maintenance m
+      JOIN hydrants h ON m.hydrant_id = h.id
+      WHERE h.organization_id = $1
+    `, [organizationId]);
+
+    res.json(stats.rows[0]);
+  } catch (error) {
+    console.error('Error fetching maintenance stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/maintenance/compliance/schedule', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
+    const organizationId = user.rows[0].organization_id;
+
+    const schedule = await db.query(`
+      SELECT 
+        h.hydrant_id,
+        h.location,
+        h.last_inspection_date,
+        CASE 
+          WHEN h.last_inspection_date IS NULL THEN 'overdue'
+          WHEN h.last_inspection_date < NOW() - INTERVAL '1 year' THEN 'overdue'
+          WHEN h.last_inspection_date < NOW() - INTERVAL '9 months' THEN 'due_soon'
+          ELSE 'compliant'
+        END as compliance_status
+      FROM hydrants h
+      WHERE h.organization_id = $1
+      ORDER BY h.last_inspection_date ASC NULLS FIRST
+    `, [organizationId]);
+
+    res.json(schedule.rows);
+  } catch (error) {
+    console.error('Error fetching compliance schedule:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/maintenance', authenticateToken, async (req, res) => {
+  try {
+    const {
+      hydrant_id,
+      maintenance_type,
+      description,
+      status,
+      scheduled_date,
+      completed_date,
+      technician,
+      notes
+    } = req.body;
+
+    const result = await db.query(`
+      INSERT INTO maintenance (
+        hydrant_id, maintenance_type, description, status,
+        scheduled_date, completed_date, technician, notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [hydrant_id, maintenance_type, description, status, scheduled_date, completed_date, technician, notes]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating maintenance record:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({

@@ -1,88 +1,282 @@
 import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Avatar } from '@mui/material';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  Box,
+  useMediaQuery,
+  useTheme,
+  Divider
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
-import { useAuth } from '../contexts/AuthContext';
+import CloseIcon from '@mui/icons-material/Close';
 
-function NavButton({ to, label, active }) {
-  return (
-    <Button
-      component={RouterLink}
-      to={to}
-      color={active ? 'secondary' : 'inherit'}
-      sx={{ mx: 0.5, fontWeight: active ? 700 : 500 }}
-    >
-      {label}
-    </Button>
-  );
-}
-
-export default function Navigation() {
+const Navigation = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const navigate = useNavigate();
-  const { logout, user } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const onLogout = () => {
-    logout();
-    navigate('/login');
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
-  const handleMobileMenuToggle = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-    const event = new CustomEvent('mobile-nav-toggle');
-    document.dispatchEvent(event);
+  const handleLogout = () => {
+  // Clear all authentication tokens and data
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('authToken');
+  localStorage.clear(); // Clear everything to be safe
+  
+  // Close mobile menu if open
+  setMobileOpen(false);
+  
+  // Navigate to login page
+  navigate('/login', { replace: true });
+  
+  // Force reload to clear any cached state
+  window.location.href = '/login';
+};
+
+
+  const handleNavigation = (path) => {
+    setMobileOpen(false);
+    navigate(path);
   };
 
-  const path = location.pathname;
+  const navItems = [
+  { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Hydrant Map', path: '/map' },
+  { label: 'Fire Flow Tests', path: '/flow-test' },
+  { label: 'Maintenance', path: '/maintenance' },
+  { label: 'Reports', path: '/reports' },
+  { label: 'Admin', path: '/admin' }
+];
 
-  const logoUrl = 'https://tridentsys.ca/trident-logo.png';
+
+
+  const drawer = (
+    <Box
+      sx={{
+        width: 280,
+        height: '100%',
+        bgcolor: '#1e3c72',
+        color: 'white'
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 2,
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <img 
+            src="/trident-logo.png" 
+            alt="HydrantHub Logo" 
+            style={{ height: '32px', width: '32px' }}
+          />
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.125rem' }}>
+            HydrantHub
+          </Typography>
+        </Box>
+        <IconButton 
+          onClick={handleDrawerToggle}
+          sx={{ color: 'white' }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
+      
+      <List sx={{ py: 0 }}>
+        {navItems.map((item) => (
+          <ListItem key={item.path} disablePadding>
+            <ListItemButton
+              onClick={() => handleNavigation(item.path)}
+              selected={location.pathname === item.path}
+              sx={{
+                py: 2,
+                px: 3,
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.08)'
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(255, 255, 255, 0.12)',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.16)'
+                  }
+                }
+              }}
+            >
+              <Typography
+                sx={{
+                  fontWeight: location.pathname === item.path ? 600 : 500,
+                  fontSize: '0.95rem'
+                }}
+              >
+                {item.label}
+              </Typography>
+            </ListItemButton>
+          </ListItem>
+        ))}
+        
+        <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', my: 1 }} />
+        
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              py: 2,
+              px: 3,
+              color: '#ff6b6b',
+              '&:hover': {
+                bgcolor: 'rgba(255, 107, 107, 0.1)'
+              }
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.95rem'
+              }}
+            >
+              Logout
+            </Typography>
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </Box>
+  );
 
   return (
-    <AppBar position="static" color="primary" elevation={2}>
-      <Toolbar>
-        {isMobile && (
-          <IconButton 
-            edge="start" 
-            color="inherit" 
-            sx={{ mr: 1 }}
-            onClick={handleMobileMenuToggle}
-            aria-label="Open navigation menu"
-          >
-            <MenuIcon />
-          </IconButton>
-        )}
-
-        <Box component={RouterLink} to="/dashboard" sx={{ display: 'flex', alignItems: 'center', color: 'inherit', textDecoration: 'none', flexGrow: 1 }}>
-          <Avatar src={logoUrl} alt="Trident Systems" sx={{ width: 32, height: 32, mr: 1, bgcolor: 'transparent' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>HydrantHub</Typography>
-        </Box>
-
-        {!isMobile && (
-          <Box>
-            <NavButton to="/dashboard" label="Dashboard" active={path.startsWith('/dashboard')} />
-            <NavButton to="/map" label="Map" active={path.startsWith('/map')} />
-            <NavButton to="/maintenance" label="Maintenance" active={path.startsWith('/maintenance')} />
-            <NavButton to="/flow-test" label="Flow Test" active={path.startsWith('/flow-test')} />
-            <NavButton to="/reports" label="Reports" active={path.startsWith('/reports')} />
-            <NavButton to="/inspections" label="Inspections" active={path.startsWith('/inspections')} />
-            {/* Admin link, only if user is admin */}
-            {user && user.role === 'admin' && (
-              <NavButton to="/admin" label="Admin" active={path.startsWith('/admin')} />
-            )}
-            <Button component="a" href="https://tridentsys.ca" target="_blank" rel="noopener" color="inherit" sx={{ mx: 0.5 }}>
-              Trident Site
-            </Button>
+    <>
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          bgcolor: '#1e3c72',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: '56px', md: '64px' } }}>
+          {/* Logo and Title */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+            <img 
+              src="/trident-logo.png" 
+              alt="HydrantHub Logo" 
+              style={{ height: '32px', width: '32px' }}
+            />
+            <Typography
+              variant="h6"
+              component={Link}
+              to="/dashboard"
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: '1.125rem', md: '1.25rem' },
+                color: 'white',
+                textDecoration: 'none',
+                letterSpacing: '-0.025em'
+              }}
+            >
+              HydrantHub
+            </Typography>
           </Box>
-        )}
 
-        <Button color="inherit" onClick={onLogout} sx={{ ml: 1 }}>
-          Logout
-        </Button>
-      </Toolbar>
-    </AppBar>
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {navItems.map((item) => (
+                <Button
+                  key={item.path}
+                  component={Link}
+                  to={item.path}
+                  sx={{
+                    color: 'white',
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    px: 2,
+                    py: 1,
+                    borderRadius: 1,
+                    bgcolor: location.pathname === item.path ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.08)'
+                    }
+                  }}
+                >
+                  {item.label}
+                </Button>
+              ))}
+              <Button
+                onClick={handleLogout}
+                sx={{
+                  color: '#ff6b6b',
+                  textTransform: 'none',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 1,
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 107, 107, 0.1)'
+                  }
+                }}
+              >
+                Logout
+              </Button>
+            </Box>
+          )}
+
+          {/* Mobile Hamburger Menu */}
+          {isMobile && (
+            <IconButton
+              color="inherit"
+              aria-label="open menu"
+              edge="end"
+              onClick={handleDrawerToggle}
+              sx={{ ml: 'auto' }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        variant="temporary"
+        anchor="right"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true
+        }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            width: 280
+          }
+        }}
+      >
+        {drawer}
+      </Drawer>
+
+      {/* Toolbar spacer */}
+      <Toolbar sx={{ minHeight: { xs: '56px', md: '64px' } }} />
+    </>
   );
-}
+};
+
+export default Navigation;

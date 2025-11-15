@@ -134,18 +134,6 @@ const MaintenanceInspection = () => {
   }
 };
 
-
-      alert('Inspection submitted successfully!');
-      setCurrentStep(1);
-      setPhotos([]);
-    } catch (error) {
-      console.error('Error submitting inspection:', error);
-      alert('Failed to submit inspection.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const updateField = (field, value) => {
     setInspectionData(prev => ({ ...prev, [field]: value }));
   };
