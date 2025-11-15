@@ -167,7 +167,9 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class AA'] || 0}
+                {metrics?.nfpaClassification?.['Class AA'] || 
+                 metrics?.nfpaClassification?.['CLASS_AA'] || 
+                 metrics?.nfpaClassification?.['AA'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class AA (1500+ GPM)
@@ -177,7 +179,9 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class A'] || 0}
+                {metrics?.nfpaClassification?.['Class A'] || 
+                 metrics?.nfpaClassification?.['CLASS_A'] || 
+                 metrics?.nfpaClassification?.['A'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class A (1000-1499 GPM)
@@ -187,7 +191,9 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class B'] || 0}
+                {metrics?.nfpaClassification?.['Class B'] || 
+                 metrics?.nfpaClassification?.['CLASS_B'] || 
+                 metrics?.nfpaClassification?.['B'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class B (500-999 GPM)
@@ -197,7 +203,9 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class C'] || 0}
+                {metrics?.nfpaClassification?.['Class C'] || 
+                 metrics?.nfpaClassification?.['CLASS_C'] || 
+                 metrics?.nfpaClassification?.['C'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class C (&lt;500 GPM)
