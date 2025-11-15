@@ -50,6 +50,7 @@ export default function MaintenancePage() {
   const loadMaintenanceData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       const [inspectionsRes, workOrdersRes, statsRes, complianceRes] = await Promise.all([
         api.get('/maintenance/inspections'),
@@ -65,7 +66,8 @@ export default function MaintenancePage() {
       
     } catch (error) {
       console.error('Error loading maintenance data:', error);
-      setError('Error loading maintenance data');
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+      setError(`Failed to load maintenance data: ${errorMsg}. Please check your connection and try refreshing.`);
     } finally {
       setLoading(false);
     }
