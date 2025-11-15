@@ -53,6 +53,7 @@ const Navigation = () => {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard' },
     { label: 'Hydrant Map', path: '/map' },
+    { label: 'Hydrants', path: '/hydrants' },
     { label: 'Fire Flow Tests', path: '/flow-test' },
     { label: 'Maintenance', path: '/maintenance' },
     { label: 'Reports', path: '/reports' },
