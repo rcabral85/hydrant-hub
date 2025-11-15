@@ -13,13 +13,21 @@ import {
   Box,
   useMediaQuery,
   useTheme,
-  Divider
+  Divider,
+  Menu,
+  MenuItem,
+  Collapse
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
 const Navigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hydrantsAnchor, setHydrantsAnchor] = useState(null);
+  const [mobileHydrantsOpen, setMobileHydrantsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -27,6 +35,19 @@ const Navigation = () => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleHydrantsClick = (event) => {
+    setHydrantsAnchor(event.currentTarget);
+  };
+
+  const handleHydrantsClose = () => {
+    setHydrantsAnchor(null);
+  };
+
+  const handleHydrantsNavigate = (path) => {
+    navigate(path);
+    handleHydrantsClose();
   };
 
   const handleLogout = () => {
@@ -128,6 +149,62 @@ const Navigation = () => {
           </ListItem>
         ))}
         
+        {/* Hydrants Submenu for Mobile */}
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => setMobileHydrantsOpen(!mobileHydrantsOpen)}
+            sx={{
+              py: 2,
+              px: 3,
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.08)'
+              }
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 500,
+                fontSize: '0.95rem',
+                flexGrow: 1
+              }}
+            >
+              Hydrants
+            </Typography>
+            {mobileHydrantsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={mobileHydrantsOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            <ListItemButton
+              onClick={() => handleNavigation('/hydrants/new')}
+              sx={{
+                pl: 5,
+                py: 1.5,
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.08)'
+                }
+              }}
+            >
+              <Typography sx={{ fontSize: '0.875rem' }}>Add New Hydrant</Typography>
+            </ListItemButton>
+            <ListItemButton
+              onClick={() => handleNavigation('/hydrants/import')}
+              sx={{
+                pl: 5,
+                py: 1.5,
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.08)'
+                }
+              }}
+            >
+              <Typography sx={{ fontSize: '0.875rem' }}>Bulk Import</Typography>
+            </ListItemButton>
+          </List>
+        </Collapse>
+        
         <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', my: 1 }} />
         
         <ListItem disablePadding>
@@ -214,6 +291,48 @@ const Navigation = () => {
                   {item.label}
                 </Button>
               ))}
+              
+              {/* Hydrants Dropdown Menu */}
+              <Button
+                onClick={handleHydrantsClick}
+                endIcon={<ArrowDropDownIcon />}
+                sx={{
+                  color: 'white',
+                  textTransform: 'none',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 1,
+                  bgcolor: location.pathname.startsWith('/hydrants') ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.08)'
+                  }
+                }}
+              >
+                Hydrants
+              </Button>
+              <Menu
+                anchorEl={hydrantsAnchor}
+                open={Boolean(hydrantsAnchor)}
+                onClose={handleHydrantsClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
+                <MenuItem onClick={() => handleHydrantsNavigate('/hydrants/new')}>
+                  Add New Hydrant
+                </MenuItem>
+                <MenuItem onClick={() => handleHydrantsNavigate('/hydrants/import')}>
+                  Bulk Import
+                </MenuItem>
+              </Menu>
+              
               <Button
                 onClick={handleLogout}
                 sx={{
