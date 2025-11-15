@@ -22,8 +22,6 @@ import Inspections from './pages/Inspections';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
-import BulkImport from './components/BulkImport';
-
 
 const theme = createTheme({
   palette: {
@@ -131,7 +129,7 @@ function AppRoutes() {
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       
       {/* Hydrant Management Routes */}
-      <Route path="/hydrants" element={<ProtectedRoute><BulkImport /></ProtectedRoute>} />
+      <Route path="/hydrants" element={<ProtectedRoute><HydrantImport /></ProtectedRoute>} />
       <Route path="/hydrants/new" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       <Route path="/hydrants/import" element={<ProtectedRoute requireAdmin={true}><HydrantImport /></ProtectedRoute>} />
