@@ -438,6 +438,26 @@ router.get('/inspections',
   authMiddleware,
   async (req, res) => {
     try {
+            // Get user and organization
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      const userResult = await pool.query(
+        'SELECT organization_id FROM users WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (!userResult.rows[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const organizationId = userResult.rows[0].organization_id;
+
+      if (!organizationId) {
+        return res.status(403).json({ error: 'User has no organization' });
+      }
+
       const result = await pool.query(`
         SELECT 
           mi.*,
@@ -447,9 +467,11 @@ router.get('/inspections',
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
         JOIN inspection_types it ON mi.inspection_type_id = it.id
+              WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
-      `);
+      ,
+        [organizationId]`);
 
       res.json(result.rows || []);
     } catch (error) {
@@ -464,6 +486,26 @@ router.get('/work-orders',
   authMiddleware,
   async (req, res) => {
     try {
+            // Get user and organization
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      const userResult = await pool.query(
+        'SELECT organization_id FROM users WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (!userResult.rows[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const organizationId = userResult.rows[0].organization_id;
+
+      if (!organizationId) {
+        return res.status(403).json({ error: 'User has no organization' });
+      }
+
       const result = await pool.query(`
         SELECT 
           rwo.*,
@@ -477,6 +519,7 @@ router.get('/work-orders',
           END as progress
         FROM repair_work_orders rwo
         JOIN hydrants h ON rwo.hydrant_id = h.id
+              WHERE h.organization_id = $1
         ORDER BY 
           CASE rwo.priority 
             WHEN 'CRITICAL' THEN 1
@@ -486,7 +529,7 @@ router.get('/work-orders',
           END,
           rwo.created_date DESC
         LIMIT 50
-      `);
+      `,[organizationId]);
 
       res.json(result.rows || []);
     } catch (error) {
@@ -501,6 +544,26 @@ router.get('/stats',
   authMiddleware,
   async (req, res) => {
     try {
+          // Get user and organization
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const userResult = await pool.query(
+      'SELECT organization_id FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (!userResult.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const organizationId = userResult.rows[0].organization_id;
+
+    if (!organizationId) {
+      return res.status(403).json({ error: 'User has no organization' });
+    }
+
       const statsResult = await pool.query(`
         SELECT 
           COUNT(*) as total,
@@ -508,7 +571,9 @@ router.get('/stats',
           SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
           SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
         FROM repair_work_orders
-      `);
+              JOIN hydrants h ON repair_work_orders.hydrant_id = h.id
+                    WHERE h.organization_id = $1
+      `,[organizationId]);
 
       res.json(statsResult.rows[0] || { total: 0, scheduled: 0, in_progress: 0, completed: 0 });
     } catch (error) {
