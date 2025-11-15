@@ -1,6 +1,37 @@
 /* Global styles with mobile-friendly defaults */
 :root {
-  --spacing: 8px;
+  /* HydrantHub Primary Colors - Match tridentsys-website */
+  --primary-blue: #1e3c72;
+  --primary-light: #4a6bb5;
+  --primary-dark: #0a1929;
+  
+  /* Accent Colors */
+  --accent-blue: #667eea;
+  --accent-dark-blue: #5a6fd8;
+  --accent-light-blue: #7c8eec;
+  
+  /* Neutral Colors */
+  --secondary-steel: #475569;
+  --accent-silver: #64748b;
+  --light-gray: #f8fafc;
+  --medium-gray: #e2e8f0;
+  --dark-gray: #334155;
+  
+  /* Status Colors */
+  --success-green: #059669;
+  --success-light: #d1fae5;
+  --warning-orange: #f59e0b;
+  --error-red: #dc2626;
+  
+  /* Text Colors */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  
+  /* NFPA 291 Flow Rating Colors */
+  --nfpa-excellent: #00ff00;
+  --nfpa-good: #90ee90;
+  --nfpa-fair: #ffff00;
+  --nfpa-poor: #ff6b35;
 }
 
 html, body, #root {
@@ -9,35 +40,20 @@ html, body, #root {
 
 body {
   margin: 0;
-  font-family: Inter, Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Improve base font and spacing on small screens */
-@media (max-width: 600px) {
-  body { font-size: 16px; line-height: 1.5; }
-  .MuiContainer-root { padding-left: 12px !important; padding-right: 12px !important; }
-  .hydrant-marker { pointer-events: auto; }
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }
 
-/* Tables: enable horizontal scroll on small screens */
-.table-scroll-x { width: 100%; overflow-x: auto; }
-.table-scroll-x table { min-width: 600px; }
-
-/* Toasts: keep clear of FABs on mobile */
-@media (max-width: 600px) {
-  .Toastify__toast-container {
-    width: calc(100% - 24px) !important;
-    left: 12px !important;
-    right: 12px !important;
-    top: auto !important;
-    bottom: 12px !important;
-  }
+/* Table scrolling for mobile */
+.table-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
-
-/* Leaflet tweaks */
-.leaflet-container { touch-action: auto; }
-
-/* Mobile nav body state prevents background scroll */
-body.mobile-nav-open { overflow: hidden; }
