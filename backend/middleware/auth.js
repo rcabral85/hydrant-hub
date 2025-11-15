@@ -9,16 +9,24 @@ const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
+    // Debug logging
+    console.log('=== AUTH DEBUG ===');
+    console.log('Path:', req.method, req.path);
+    console.log('Auth header:', authHeader ? authHeader.substring(0, 30) + '...' : 'NONE');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No token or invalid format');
       return res.status(401).json({ 
         error: 'Access denied. No token provided or invalid format.' 
       });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('✓ Token extracted, length:', token.length);
     
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-change-this');
+      console.log('✓ Token verified for user:', decoded.username);
       
       // Get fresh user data from database
       const result = await db.query(`
@@ -30,6 +38,7 @@ const authenticateToken = async (req, res, next) => {
           u.first_name,
           u.last_name,
           u.role,
+          u.is_superadmin,
           u.is_active,
           o.name as organization_name,
           o.type as organization_type
@@ -39,20 +48,25 @@ const authenticateToken = async (req, res, next) => {
       `, [decoded.id]);
 
       if (result.rows.length === 0) {
+        console.log('❌ User not found in database');
         return res.status(401).json({ error: 'User not found.' });
       }
 
       const user = result.rows[0];
       
       if (!user.is_active) {
+        console.log('❌ User account is inactive');
         return res.status(401).json({ error: 'Account is inactive.' });
       }
 
+      console.log('✓ User authenticated:', user.username, 'Org:', user.organization_id);
+      
       // Attach user data to request object
       req.user = user;
       next();
 
     } catch (jwtError) {
+      console.log('❌ JWT Error:', jwtError.name, jwtError.message);
       if (jwtError.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Token has expired.' });
       }
@@ -67,6 +81,7 @@ const authenticateToken = async (req, res, next) => {
     return res.status(500).json({ error: 'Authentication error.' });
   }
 };
+
 
 /**
  * Role-based Authorization Middleware
@@ -249,6 +264,30 @@ const rateLimit = (windowMs = 15 * 60 * 1000, max = 100) => {
     next();
   };
 };
+/**
+ * Middleware: Require operator or admin role
+ */
+const operatorOrAdmin = async (req, res, next) => {
+  try {
+    // authenticateToken should have already run and set req.user
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const allowedRoles = ['operator', 'admin'];
+    
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Operator or Admin role required.' 
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('operatorOrAdmin middleware error:', error);
+    return res.status(500).json({ error: 'Authorization error' });
+  }
+};
 
 module.exports = {
   authenticateToken,
@@ -256,5 +295,6 @@ module.exports = {
   requireOrganizationAccess,
   optionalAuth,
   requireResourceOwner,
-  rateLimit
+  rateLimit,
+  operatorOrAdmin
 };

@@ -18,7 +18,7 @@ const registerSchema = Joi.object({
   password: Joi.string().min(6).required(),
   first_name: Joi.string().max(100).required(),
   last_name: Joi.string().max(100).required(),
-  role: Joi.string().valid('admin', 'operator', 'supervisor', 'viewer', 'fire_inspector').default('operator'),
+  role: Joi.string().valid('admin', 'operator').default('operator'),
   phone: Joi.string().pattern(/^[\d\-\+\(\)\s]+$/).optional()
 });
 
@@ -30,7 +30,8 @@ function generateToken(user) {
       username: user.username,
       email: user.email,
       role: user.role,
-      organization_id: user.organization_id
+      organization_id: user.organization_id,
+      is_superadmin: user.is_superadmin || false
     },
     process.env.JWT_SECRET || 'fallback-secret-change-this',
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
@@ -131,7 +132,7 @@ router.post('/register', async (req, res, next) => {
         organization_id, username, email, password_hash, 
         first_name, last_name, role, phone
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id, organization_id, username, email, first_name, last_name, role, phone, is_active, created_at`,
+      RETURNING id, organization_id, username, email, first_name, last_name, role, phone, is_active, is_superadmin, created_at`,
       [
         userData.organization_id,
         userData.username,
@@ -308,7 +309,7 @@ router.put('/profile', async (req, res, next) => {
       UPDATE users 
       SET ${updateFields.join(', ')}
       WHERE id = $1 AND is_active = true
-      RETURNING id, organization_id, username, email, first_name, last_name, role, phone, updated_at`;
+      RETURNING id, organization_id, username, email, first_name, last_name, role, phone, is_superadmin, updated_at`;
 
     const result = await db.query(updateQuery, updateValues);
 

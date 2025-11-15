@@ -16,9 +16,13 @@ import FlowTestForm from './components/FlowTestForm';
 import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
 import HydrantAdd from './components/HydrantAdd';
+import HydrantImport from './components/HydrantImport';
 import MobileInspectionMUI from './components/MobileInspectionMUI';
 import AdminDashboard from './pages/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import BulkImport from './components/BulkImport';
+
 
 const theme = createTheme({
   palette: {
@@ -69,6 +73,7 @@ function TitleUpdater() {
       '/reports': 'Reports & Analytics',
       '/hydrants/new': 'Add New Hydrant',
       '/hydrants/edit': 'Edit Hydrant',
+      '/hydrants/import': 'Bulk Import Hydrants',
       '/admin': 'Admin Dashboard'
     };
     
@@ -86,18 +91,6 @@ function TitleUpdater() {
   }, [location.pathname]);
   
   return null;
-}
-
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress size={60} />
-      </Box>
-    );
-  }
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
@@ -118,22 +111,36 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-      {/* Admin Dashboard (protected but checks admin role inside) */}
-      <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-      {/* Protected Routes */}
+      
+      {/* Admin Dashboard - requires superadmin role */}
+      <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute requireSuperadmin={true}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Protected Routes - require authentication */}
       <Route path="/dashboard" element={<ProtectedRoute><EnhancedDashboard /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><HydrantMapEnhanced /></ProtectedRoute>} />
       <Route path="/flow-test" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
       <Route path="/flow-test/:hydrantId" element={<ProtectedRoute><FlowTestForm /></ProtectedRoute>} />
+      
       {/* Hydrant Management Routes */}
       <Route path="/hydrants/new" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
       <Route path="/hydrants/:hydrantId/edit" element={<ProtectedRoute><HydrantAdd /></ProtectedRoute>} />
+      <Route path="/hydrants/import" element={<ProtectedRoute requireAdmin={true}><HydrantImport /></ProtectedRoute>} />
+      
       {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
       <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
       <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
-      {/* Reports Routes */}
-      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      
+      {/* Reports Routes - Admin only */}
+      <Route path="/reports" element={<ProtectedRoute requireAdmin={true}><ReportsPage /></ProtectedRoute>} />
+      
       {/* Default Routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       {/* 404 Catch-all - Redirect to dashboard if authenticated, login if not */}

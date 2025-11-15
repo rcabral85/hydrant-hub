@@ -4,10 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import {
   Box, Paper, Typography, Chip, Stack, Alert, Drawer, Card, CardContent,
   Button, Fab, IconButton, Tabs, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Divider, Tooltip, useMediaQuery
+  TableContainer, TableHead, TableRow, Tooltip, useMediaQuery, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import {
-  Add, Close, Edit, Timeline, Build, LocationOn, Refresh
+  Add, Close, Edit, Timeline, Build, Refresh, Layers
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -21,8 +21,15 @@ const NFPA_COLORS = {
   A: '#00FF00',
   B: '#FFA500',
   C: '#FF0000',
+};
+
+// Work Status Colors
+const WORK_STATUS_COLORS = {
+  COMPLIANT: '#10b981',
+  DUE_SOON: '#f59e0b',
+  OVERDUE: '#ef4444',
+  NEEDS_MAINTENANCE: '#dc2626',
   OUT_OF_SERVICE: '#6b7280',
-  MAINTENANCE_REQUIRED: '#dc2626'
 };
 
 const DEFAULT_CENTER = [
@@ -32,23 +39,51 @@ const DEFAULT_CENTER = [
 
 const DEFAULT_ZOOM = parseInt(import.meta.env.VITE_DEFAULT_MAP_ZOOM || '12', 10);
 
-function Legend({ isMobile }) {
+function Legend({ mapView, isMobile }) {
   return (
-    <Paper elevation={3} sx={{ position: 'absolute', top: isMobile ? 70 : 80, right: 16, p: 2, zIndex: 1000 }}>
-      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA 291 Classifications</Typography>
-      <Stack direction="column" spacing={1}>
-        {[
-          { key: 'AA', label: 'Class AA (1500+ GPM)', desc: 'Blue' },
-          { key: 'A', label: 'Class A (1000-1499 GPM)', desc: 'Green' },
-          { key: 'B', label: 'Class B (500-999 GPM)', desc: 'Orange' },
-          { key: 'C', label: 'Class C (<500 GPM)', desc: 'Red' },
-        ].map(item => (
-          <Stack key={item.key} direction="row" spacing={1} alignItems="center">
-            <Box sx={{ width: 16, height: 16, backgroundColor: NFPA_COLORS[item.key], borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)' }} />
-            <Typography variant="caption" sx={{ fontWeight: 500 }}>{item.label}</Typography>
+    <Paper elevation={3} sx={{ position: 'absolute', top: isMobile ? 70 : 80, right: 16, p: 2, zIndex: 1000, maxWidth: 240 }}>
+      {mapView === 'nfpa' ? (
+        <>
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>NFPA 291 Flow Classes</Typography>
+          <Stack direction="column" spacing={1}>
+            {[
+              { key: 'AA', label: 'Class AA', desc: '≥1500 GPM' },
+              { key: 'A', label: 'Class A', desc: '1000-1499 GPM' },
+              { key: 'B', label: 'Class B', desc: '500-999 GPM' },
+              { key: 'C', label: 'Class C', desc: '<500 GPM' },
+            ].map(item => (
+              <Stack key={item.key} direction="row" spacing={1} alignItems="center">
+                <Box sx={{ width: 16, height: 16, backgroundColor: NFPA_COLORS[item.key], borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)' }} />
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>{item.label}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 10 }}>{item.desc}</Typography>
+                </Box>
+              </Stack>
+            ))}
           </Stack>
-        ))}
-      </Stack>
+        </>
+      ) : (
+        <>
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>Work Status</Typography>
+          <Stack direction="column" spacing={1}>
+            {[
+              { key: 'COMPLIANT', label: 'Compliant', desc: 'Up to date' },
+              { key: 'DUE_SOON', label: 'Due Soon', desc: 'Within 30 days' },
+              { key: 'OVERDUE', label: 'Overdue', desc: 'Past due date' },
+              { key: 'NEEDS_MAINTENANCE', label: 'Needs Work', desc: 'Maintenance required' },
+              { key: 'OUT_OF_SERVICE', label: 'Out of Service', desc: 'Not operational' },
+            ].map(item => (
+              <Stack key={item.key} direction="row" spacing={1} alignItems="center">
+                <Box sx={{ width: 16, height: 16, backgroundColor: WORK_STATUS_COLORS[item.key], borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)' }} />
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>{item.label}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 10 }}>{item.desc}</Typography>
+                </Box>
+              </Stack>
+            ))}
+          </Stack>
+        </>
+      )}
     </Paper>
   );
 }
@@ -82,6 +117,33 @@ function HydrantInfoPopup({ feature, onFlowTest, onMaintenance, onEdit }) {
   );
 }
 
+function getWorkStatus(hydrant) {
+  const props = hydrant.properties;
+  
+  if (props.operational_status === 'OUT_OF_SERVICE' || props.status === 'out_of_service') {
+    return 'OUT_OF_SERVICE';
+  }
+  
+  if (props.operational_status === 'MAINTENANCE_REQUIRED' || props.status === 'maintenance_required') {
+    return 'NEEDS_MAINTENANCE';
+  }
+  
+  const lastTestDate = props.last_flow_test_date || props.last_inspection_date;
+  if (!lastTestDate) {
+    return 'OVERDUE';
+  }
+  
+  const daysSinceTest = dayjs().diff(dayjs(lastTestDate), 'day');
+  
+  if (daysSinceTest > 365) {
+    return 'OVERDUE';
+  } else if (daysSinceTest > 335) {
+    return 'DUE_SOON';
+  }
+  
+  return 'COMPLIANT';
+}
+
 export default function HydrantMapEnhanced() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,6 +160,7 @@ export default function HydrantMapEnhanced() {
   const [hydrantDetails, setHydrantDetails] = useState(null);
   const [flowTests, setFlowTests] = useState([]);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
+  const [mapView, setMapView] = useState('nfpa'); // 'nfpa' or 'work'
 
   useEffect(() => {
     loadMapData();
@@ -148,16 +211,12 @@ export default function HydrantMapEnhanced() {
         const flowRes = await api.get(`/flow-tests?hydrant_id=${hydrantId}&limit=5`);
         setFlowTests(flowRes.data.flowTests || []);
       } catch { setFlowTests([]); }
-      setMaintenanceHistory([
-        { id: 1, type: 'INSPECTION', date: '2025-09-15', status: 'PASS', inspector: 'Rich Cabral', notes: 'Annual inspection completed - excellent condition' },
-        { id: 2, type: 'FLOW_TEST', date: '2025-09-15', status: 'AA', inspector: 'Rich Cabral', notes: '2,347 GPM - Class AA performance' }
-      ]);
+      setMaintenanceHistory([]);
     } catch {}
   };
 
   const handleMarkerClick = (feature) => {
     setSelectedHydrant(feature);
-    // Open Drawer for full details, but also rely on Popup for quick glance (no blank screen)
     setDrawerOpen(true);
     setDrawerTab(0);
     loadHydrantDetails(feature.properties.id);
@@ -168,8 +227,27 @@ export default function HydrantMapEnhanced() {
 
   return (
     <Box sx={{ position: 'relative', height: 'calc(100vh - 80px)' }}>
+      {/* Map View Toggle */}
+      <Paper elevation={3} sx={{ position: 'absolute', top: 16, left: 16, zIndex: 1000 }}>
+        <ToggleButtonGroup
+          value={mapView}
+          exclusive
+          onChange={(e, value) => value && setMapView(value)}
+          size="small"
+        >
+          <ToggleButton value="nfpa">
+            <Layers sx={{ mr: 0.5, fontSize: 18 }} />
+            NFPA Classification
+          </ToggleButton>
+          <ToggleButton value="work">
+            <Build sx={{ mr: 0.5, fontSize: 18 }} />
+            Work Status
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Paper>
+
       {error && (
-        <Alert severity="error" sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1000, maxWidth: 400 }}>
+        <Alert severity="error" sx={{ position: 'absolute', top: 80, left: 16, zIndex: 1000, maxWidth: 400 }}>
           {typeof error === 'string' ? error : JSON.stringify(error)}
         </Alert>
       )}
@@ -189,9 +267,15 @@ export default function HydrantMapEnhanced() {
           if (!f?.geometry?.coordinates) return null;
           const [lon, lat] = f.geometry.coordinates;
           const props = f.properties;
-          const status = props?.operational_status || props?.status || 'OPERATIONAL';
-          const cls = props?.nfpa_class || props?.nfpa_classification || 'C';
-          const color = status === 'OUT_OF_SERVICE' ? NFPA_COLORS.OUT_OF_SERVICE : status === 'MAINTENANCE_REQUIRED' ? NFPA_COLORS.MAINTENANCE_REQUIRED : NFPA_COLORS[cls] || NFPA_COLORS.C;
+          
+          let color;
+          if (mapView === 'nfpa') {
+            const cls = props?.nfpa_class || props?.nfpa_classification || 'C';
+            color = NFPA_COLORS[cls] || NFPA_COLORS.C;
+          } else {
+            const workStatus = getWorkStatus(f);
+            color = WORK_STATUS_COLORS[workStatus];
+          }
 
           return (
             <CircleMarker key={props.id} center={[lat, lon]} radius={markerRadius}
@@ -210,7 +294,7 @@ export default function HydrantMapEnhanced() {
         })}
       </MapContainer>
 
-      <Legend isMobile={isMobile} />
+      <Legend mapView={mapView} isMobile={isMobile} />
 
       <Stack spacing={1} sx={{ position: 'absolute', bottom: isMobile ? 80 : 20, right: 20, zIndex: 1000 }}>
         <Tooltip title={addMode ? 'Click map to add hydrant' : 'Add new hydrant'}>
@@ -246,14 +330,6 @@ export default function HydrantMapEnhanced() {
                 </Stack>
               </CardContent>
             </Card>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={drawerTab} onChange={(e, v) => setDrawerTab(v)} variant="fullWidth">
-                <Tab label="Overview" />
-                <Tab label="Flow Tests" />
-                <Tab label="Maintenance" />
-              </Tabs>
-            </Box>
-            {/* Additional drawer content omitted for brevity */}
           </Box>
         )}
       </Drawer>

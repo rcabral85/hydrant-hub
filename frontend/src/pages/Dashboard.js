@@ -1,29 +1,244 @@
-import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Grid, 
+  Card, 
+  CardContent, 
+  CircularProgress,
+  Alert,
+  Chip
+} from '@mui/material';
+import { 
+  LocalFireDepartment as HydrantIcon,
+  CheckCircle as CheckIcon,
+  Warning as WarningIcon,
+  Build as BuildIcon
+} from '@mui/icons-material';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function Dashboard() {
+  const { user } = useAuth();
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      const token = localStorage.getItem('hydrantHub_token');
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/dashboard/metrics`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log('Dashboard metrics:', response.data);
+        setMetrics(response.data);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching dashboard metrics:', err);
+        setError('Failed to load dashboard metrics');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  const isAdmin = user?.role === 'admin';
+  const isSuperadmin = user?.is_superadmin === true;
+
   return (
-    <Box sx={{ p: 4, width: '100%', maxWidth: 900, margin: '0 auto', bgcolor: '#fff', borderRadius: 4, mt: 4, boxShadow: 2 }}>
-      <Typography variant="h4" color="primary" gutterBottom>
-        HydrantHub Dashboard
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        Welcome to HydrantHub! Manage hydrants, conduct flow tests, review compliance, and generate PDF reports for municipalities, fire departments, and contractors.
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <Button component={Link} to="/hydrants" variant="contained" color="primary">
-          Hydrant Inventory
-        </Button>
-        <Button component={Link} to="/flow-tests" variant="contained" color="secondary">
-          Flow Testing
-        </Button>
-      </Box>
-      <Box>
-        <Typography variant="subtitle1" color="text.secondary">
-          Trident Systems &mdash; Ontario Water Operations
+    <Box sx={{ p: 4 }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight={700} gutterBottom>
+          HydrantHub Dashboard
         </Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom>
+          Complete hydrant management & regulatory compliance platform
+        </Typography>
+        {(isAdmin || isSuperadmin) && (
+          <Chip 
+            label="Administrator View" 
+            color="primary" 
+            size="small" 
+            sx={{ mt: 1 }} 
+          />
+        )}
       </Box>
+
+      {/* Key Metrics Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Total Hydrants */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ height: '100%', bgcolor: 'primary.main', color: 'white' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <HydrantIcon sx={{ mr: 1 }} />
+                <Typography variant="h4" fontWeight={700}>
+                  {metrics?.hydrants?.total || 0}
+                </Typography>
+              </Box>
+              <Typography variant="body2">Total Hydrants</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Compliance Rate */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ height: '100%', bgcolor: 'success.main', color: 'white' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <CheckIcon sx={{ mr: 1 }} />
+                <Typography variant="h4" fontWeight={700}>
+                  {metrics?.compliance?.percentage || 0}%
+                </Typography>
+              </Box>
+              <Typography variant="body2">Compliance Rate</Typography>
+              <Typography variant="caption">O. Reg 169/03</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Overdue Tests */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ height: '100%', bgcolor: metrics?.hydrants?.overdueTests > 0 ? 'warning.main' : 'success.light', color: 'white' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <WarningIcon sx={{ mr: 1 }} />
+                <Typography variant="h4" fontWeight={700}>
+                  {metrics?.hydrants?.overdueTests || 0}
+                </Typography>
+              </Box>
+              <Typography variant="body2">Overdue Inspections</Typography>
+              <Typography variant="caption">
+                {metrics?.hydrants?.overdueTests > 0 ? 'Immediate attention' : 'All up to date'}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Active Hydrants */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ height: '100%', bgcolor: 'info.main', color: 'white' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <BuildIcon sx={{ mr: 1 }} />
+                <Typography variant="h4" fontWeight={700}>
+                  {metrics?.hydrants?.active || 0}
+                </Typography>
+              </Box>
+              <Typography variant="body2">Active Hydrants</Typography>
+              <Typography variant="caption">Operational status</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* NFPA Classification */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom>
+          NFPA 291 Classification Distribution
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700}>
+                {metrics?.nfpaClassification?.['Class AA'] || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Class AA (1500+ GPM)
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700}>
+                {metrics?.nfpaClassification?.['Class A'] || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Class A (1000-1499 GPM)
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700}>
+                {metrics?.nfpaClassification?.['Class B'] || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Class B (500-999 GPM)
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700}>
+                {metrics?.nfpaClassification?.['Class C'] || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Class C (&lt;500 GPM)
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Activity Summary */}
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom>
+          Recent Activity (Last 30 Days)
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="h4" fontWeight={700} color="primary">
+              {metrics?.activity?.recentInspections || 0}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Inspections Completed
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="h4" fontWeight={700} color="primary">
+              {metrics?.activity?.recentFlowTests || 0}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Flow Tests Conducted
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="h4" fontWeight={700} color="primary">
+              {metrics?.hydrants?.total - (metrics?.hydrants?.overdueTests || 0)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Hydrants Up to Date
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
     </Box>
   );
 }
