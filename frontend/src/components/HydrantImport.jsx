@@ -18,14 +18,17 @@ const api = axios.create({
 
 // Add token to all requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('hydrantHub_token');
+  const token =
+    localStorage.getItem('token') ||
+    localStorage.getItem('hydrantHub_token') ||
+    localStorage.getItem('authToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log('Bulk import request with token:', token ? 'YES' : 'NO');
+  // Remove or comment this to avoid leaking token presence in prod logs
+  // console.log('Bulk import request with token:', token ? 'YES' : 'NO');
   return config;
 });
-
 
 export default function HydrantImport() {
   const [activeStep, setActiveStep] = useState(0);
@@ -120,25 +123,24 @@ export default function HydrantImport() {
     setError(null);
   };
 
+  // ... rest of the original component code ...
+
+  // (omitted below for brevity - use *all* the original render step and return code as before)
+
   const renderUploadStep = () => (
     <Box sx={{ textAlign: 'center', py: 6 }}>
+      {/* ... unchanged ... */}
       <CloudUpload sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
       <Typography variant="h5" gutterBottom>Upload Hydrant Data</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Upload a CSV or Excel file with hydrant information
       </Typography>
-      
-      <Button
-        variant="contained"
-        component="label"
-        size="large"
-        startIcon={<CloudUpload />}
-      >
+      <Button variant="contained" component="label" size="large" startIcon={<CloudUpload />}>
         Select File
         <input type="file" hidden accept=".csv,.xlsx,.xls" onChange={handleFileUpload} />
       </Button>
-
       <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2, textAlign: 'left' }}>
+        {/* ... unchanged ... */}
         <Typography variant="subtitle2" gutterBottom>Required Columns:</Typography>
         <Typography variant="body2">• hydrant_number (required)</Typography>
         <Typography variant="body2">• address (required)</Typography>
@@ -146,13 +148,7 @@ export default function HydrantImport() {
         <Typography variant="body2">• latitude, longitude, manufacturer, model, year_installed</Typography>
         <Typography variant="body2">• size_inches, outlet_count, nfpa_class, available_flow_gpm</Typography>
       </Box>
-
-      <Button
-        variant="text"
-        startIcon={<History />}
-        onClick={() => { loadImportHistory(); setShowHistory(true); }}
-        sx={{ mt: 2 }}
-      >
+      <Button variant="text" startIcon={<History />} onClick={() => { loadImportHistory(); setShowHistory(true); }} sx={{ mt: 2 }}>
         View Import History
       </Button>
     </Box>
@@ -164,29 +160,18 @@ export default function HydrantImport() {
         <Typography variant="h6">Preview & Validation</Typography>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={handleReset}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            onClick={validationResults ? handleCommit : handleValidate}
-            disabled={loading}
-          >
+          <Button variant="contained" onClick={validationResults ? handleCommit : handleValidate} disabled={loading}>
             {loading ? <CircularProgress size={24} /> : validationResults ? 'Commit Import' : 'Validate Data'}
           </Button>
         </Stack>
       </Stack>
-
-      {parsedData.length > 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Found {parsedData.length} rows in file: {file?.name}
-        </Alert>
-      )}
-
+      {parsedData.length > 0 && (<Alert severity="info" sx={{ mb: 2 }}>Found {parsedData.length} rows in file: {file?.name}</Alert>)}
       {validationResults && (
         <Stack spacing={2} sx={{ mb: 3 }}>
           <Alert severity={validationResults.valid_count > 0 ? 'success' : 'error'}>
             <strong>{validationResults.valid_count}</strong> valid rows, 
             <strong> {validationResults.error_count}</strong> errors
           </Alert>
-          
           {validationResults.errors && validationResults.errors.length > 0 && (
             <Paper sx={{ p: 2, bgcolor: 'error.lighter' }}>
               <Typography variant="subtitle2" gutterBottom>Validation Errors:</Typography>
@@ -197,7 +182,6 @@ export default function HydrantImport() {
           )}
         </Stack>
       )}
-
       <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
         <Table stickyHeader size="small">
           <TableHead>
@@ -218,9 +202,7 @@ export default function HydrantImport() {
           </TableBody>
         </Table>
       </TableContainer>
-      {parsedData.length > 50 && (
-        <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>Showing first 50 rows</Typography>
-      )}
+      {parsedData.length > 50 && (<Typography variant="caption" sx={{ mt: 1, display: 'block' }}>Showing first 50 rows</Typography>)}
     </Box>
   );
 
@@ -228,23 +210,16 @@ export default function HydrantImport() {
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
       <Typography variant="h5" gutterBottom>Import Complete!</Typography>
-      
-      {importResults && (
-        <Stack spacing={2} sx={{ mt: 3, maxWidth: 500, mx: 'auto' }}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h4" color="success.main">{importResults.successful_rows}</Typography>
-            <Typography variant="body2">Hydrants imported successfully</Typography>
-          </Paper>
-          
-          {importResults.failed_rows > 0 && (
-            <Paper sx={{ p: 2, bgcolor: 'error.lighter' }}>
-              <Typography variant="h4" color="error">{importResults.failed_rows}</Typography>
-              <Typography variant="body2">Failed imports</Typography>
-            </Paper>
-          )}
-        </Stack>
-      )}
-
+      {importResults && (<Stack spacing={2} sx={{ mt: 3, maxWidth: 500, mx: 'auto' }}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h4" color="success.main">{importResults.successful_rows}</Typography>
+          <Typography variant="body2">Hydrants imported successfully</Typography>
+        </Paper>
+        {importResults.failed_rows > 0 && (<Paper sx={{ p: 2, bgcolor: 'error.lighter' }}>
+          <Typography variant="h4" color="error">{importResults.failed_rows}</Typography>
+          <Typography variant="body2">Failed imports</Typography>
+        </Paper>)}
+      </Stack>)}
       <Button variant="contained" onClick={handleReset} sx={{ mt: 4 }}>
         Import Another File
       </Button>
@@ -254,56 +229,42 @@ export default function HydrantImport() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Bulk Hydrant Import</Typography>
-      
       <Paper sx={{ p: 3, mt: 3 }}>
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
+          {steps.map((label) => (<Step key={label}><StepLabel>{label}</StepLabel></Step>))}
         </Stepper>
-
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
         {activeStep === 0 && renderUploadStep()}
         {activeStep === 1 && renderValidationStep()}
         {activeStep === 2 && renderCompleteStep()}
       </Paper>
-
       {/* Import History Dialog */}
       <Dialog open={showHistory} onClose={() => setShowHistory(false)} maxWidth="md" fullWidth>
         <DialogTitle>Import History</DialogTitle>
-        <DialogContent>
-          {importHistory.length === 0 ? (
-            <Typography color="text.secondary">No import history available</Typography>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Filename</TableCell>
-                    <TableCell>Success</TableCell>
-                    <TableCell>Failed</TableCell>
-                    <TableCell>Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {importHistory.map((imp) => (
-                    <TableRow key={imp.id}>
-                      <TableCell>{new Date(imp.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>{imp.filename}</TableCell>
-                      <TableCell>{imp.successful_rows}</TableCell>
-                      <TableCell>{imp.failed_rows}</TableCell>
-                      <TableCell>{imp.total_rows}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
+        <DialogContent>{importHistory.length === 0 ? (<Typography color="text.secondary">No import history available</Typography>) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Filename</TableCell>
+                  <TableCell>Success</TableCell>
+                  <TableCell>Failed</TableCell>
+                  <TableCell>Total</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>{importHistory.map((imp) => (
+                <TableRow key={imp.id}>
+                  <TableCell>{new Date(imp.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{imp.filename}</TableCell>
+                  <TableCell>{imp.successful_rows}</TableCell>
+                  <TableCell>{imp.failed_rows}</TableCell>
+                  <TableCell>{imp.total_rows}</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </TableContainer>
+        )}</DialogContent>
         <DialogActions>
           <Button onClick={() => setShowHistory(false)}>Close</Button>
         </DialogActions>
