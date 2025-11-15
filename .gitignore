@@ -4,12 +4,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables - CRITICAL: Never commit these!
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+**/.env
+**/backend/.env
+**/frontend/.env
 
 # Build outputs
 dist/
@@ -45,6 +48,7 @@ logs
 *.swp
 *.swo
 *~
+*.code-workspace
 
 # OS generated files
 .DS_Store
@@ -73,3 +77,7 @@ test-results/
 # Miscellaneous
 *.tmp
 *.temp
+
+# Lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
