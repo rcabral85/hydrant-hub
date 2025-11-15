@@ -211,6 +211,15 @@ export function AuthProvider({ children }) {
   // Logout function
   const logout = () => {
     authService.logout();
+        
+    // Clear all localStorage items
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('hydrantHub_token');
+    localStorage.removeItem('hydrantHub_refreshToken');
+    localStorage.removeItem('hydrantHub_user');
+    
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
     toast.info('You have been logged out.');
   };
