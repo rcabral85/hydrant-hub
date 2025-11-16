@@ -289,12 +289,15 @@ const operatorOrAdmin = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  authenticateToken,
-  requireRole,
-  requireOrganizationAccess,
-  optionalAuth,
-  requireResourceOwner,
-  rateLimit,
-  operatorOrAdmin
-};
+// Default export for basic auth
+module.exports = authenticateToken;
+
+// Named exports for advanced middleware
+module.exports.authenticateToken = authenticateToken;
+module.exports.requireRole = requireRole;
+module.exports.requireOrganizationAccess = requireOrganizationAccess;
+module.exports.optionalAuth = optionalAuth;
+module.exports.requireResourceOwner = requireResourceOwner;
+module.exports.rateLimit = rateLimit;
+module.exports.operatorOrAdmin = operatorOrAdmin;
+
