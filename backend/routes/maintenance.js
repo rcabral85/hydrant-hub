@@ -438,24 +438,46 @@ router.get('/inspections',
   authMiddleware,
   async (req, res) => {
     try {
-            // Get user and organization
+      // Enhanced user validation
       if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: 'User not found' });
+        console.error('Authentication error: User object missing from request');
+        return res.status(401).json({ 
+          error: 'Authentication failed',
+          message: 'Please log in again' 
+        });
       }
 
-      const userResult = await pool.query(
-        'SELECT organization_id FROM users WHERE id = $1',
-        [req.user.id]
-      );
+      // Get user and organization with better error handling
+      let userResult;
+      try {
+        userResult = await pool.query(
+          'SELECT organization_id FROM users WHERE id = $1',
+          [req.user.id]
+        );
+      } catch (dbError) {
+        console.error('Database error fetching user:', dbError);
+        return res.status(500).json({ 
+          error: 'Database error',
+          message: 'Unable to fetch user data' 
+        });
+      }
 
-      if (!userResult.rows[0]) {
-        return res.status(404).json({ error: 'User not found' });
+      if (!userResult.rows || userResult.rows.length === 0) {
+        console.error('User not found in database:', req.user.id);
+        return res.status(404).json({ 
+          error: 'User not found',
+          message: 'Your user account could not be found. Please contact support.' 
+        });
       }
 
       const organizationId = userResult.rows[0].organization_id;
 
       if (!organizationId) {
-        return res.status(403).json({ error: 'User has no organization' });
+        console.error('User has no organization:', req.user.id);
+        return res.status(403).json({ 
+          error: 'No organization assigned',
+          message: 'Your account is not associated with an organization. Please contact your administrator.' 
+        });
       }
 
       const result = await pool.query(`
@@ -467,43 +489,68 @@ router.get('/inspections',
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
         JOIN inspection_types it ON mi.inspection_type_id = it.id
-              WHERE h.organization_id = $1
+        WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
-      ,
-        [organizationId]`);
+      `, [organizationId]);
 
       res.json(result.rows || []);
     } catch (error) {
       console.error('Error fetching all inspections:', error);
-      res.status(500).json({ error: 'Failed to fetch inspections' });
+      res.status(500).json({ 
+        error: 'Failed to fetch inspections',
+        message: 'An error occurred while loading maintenance data. Please try again.' 
+      });
     }
   }
 );
+
 
 // Get all work orders for the organization  
 router.get('/work-orders',
   authMiddleware,
   async (req, res) => {
     try {
-            // Get user and organization
+      // Enhanced user validation
       if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: 'User not found' });
+        console.error('Authentication error: User object missing from request');
+        return res.status(401).json({ 
+          error: 'Authentication failed',
+          message: 'Please log in again' 
+        });
       }
 
-      const userResult = await pool.query(
-        'SELECT organization_id FROM users WHERE id = $1',
-        [req.user.id]
-      );
+      // Get user and organization with better error handling
+      let userResult;
+      try {
+        userResult = await pool.query(
+          'SELECT organization_id FROM users WHERE id = $1',
+          [req.user.id]
+        );
+      } catch (dbError) {
+        console.error('Database error fetching user:', dbError);
+        return res.status(500).json({ 
+          error: 'Database error',
+          message: 'Unable to fetch user data' 
+        });
+      }
 
-      if (!userResult.rows[0]) {
-        return res.status(404).json({ error: 'User not found' });
+      if (!userResult.rows || userResult.rows.length === 0) {
+        console.error('User not found in database:', req.user.id);
+        return res.status(404).json({ 
+          error: 'User not found',
+          message: 'Your user account could not be found. Please contact support.' 
+        });
       }
 
       const organizationId = userResult.rows[0].organization_id;
 
       if (!organizationId) {
-        return res.status(403).json({ error: 'User has no organization' });
+        console.error('User has no organization:', req.user.id);
+        return res.status(403).json({ 
+          error: 'No organization assigned',
+          message: 'Your account is not associated with an organization. Please contact your administrator.' 
+        });
       }
 
       const result = await pool.query(`
@@ -519,7 +566,7 @@ router.get('/work-orders',
           END as progress
         FROM repair_work_orders rwo
         JOIN hydrants h ON rwo.hydrant_id = h.id
-              WHERE h.organization_id = $1
+        WHERE h.organization_id = $1
         ORDER BY 
           CASE rwo.priority 
             WHEN 'CRITICAL' THEN 1
@@ -529,40 +576,66 @@ router.get('/work-orders',
           END,
           rwo.created_date DESC
         LIMIT 50
-      `,[organizationId]);
+      `, [organizationId]);
 
       res.json(result.rows || []);
     } catch (error) {
       console.error('Error fetching all work orders:', error);
-      res.status(500).json({ error: 'Failed to fetch work orders' });
+      res.status(500).json({ 
+        error: 'Failed to fetch work orders',
+        message: 'An error occurred while loading work order data. Please try again.' 
+      });
     }
   }
 );
+
 
 // Get maintenance statistics for the organization
 router.get('/stats',
   authMiddleware,
   async (req, res) => {
     try {
-          // Get user and organization
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ error: 'User not found' });
-    }
+      // Enhanced user validation
+      if (!req.user || !req.user.id) {
+        console.error('Authentication error: User object missing from request');
+        return res.status(401).json({ 
+          error: 'Authentication failed',
+          message: 'Please log in again' 
+        });
+      }
 
-    const userResult = await pool.query(
-      'SELECT organization_id FROM users WHERE id = $1',
-      [req.user.id]
-    );
+      // Get user and organization with better error handling
+      let userResult;
+      try {
+        userResult = await pool.query(
+          'SELECT organization_id FROM users WHERE id = $1',
+          [req.user.id]
+        );
+      } catch (dbError) {
+        console.error('Database error fetching user:', dbError);
+        return res.status(500).json({ 
+          error: 'Database error',
+          message: 'Unable to fetch user data' 
+        });
+      }
 
-    if (!userResult.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+      if (!userResult.rows || userResult.rows.length === 0) {
+        console.error('User not found in database:', req.user.id);
+        return res.status(404).json({ 
+          error: 'User not found',
+          message: 'Your user account could not be found. Please contact support.' 
+        });
+      }
 
-    const organizationId = userResult.rows[0].organization_id;
+      const organizationId = userResult.rows[0].organization_id;
 
-    if (!organizationId) {
-      return res.status(403).json({ error: 'User has no organization' });
-    }
+      if (!organizationId) {
+        console.error('User has no organization:', req.user.id);
+        return res.status(403).json({ 
+          error: 'No organization assigned',
+          message: 'Your account is not associated with an organization. Please contact your administrator.' 
+        });
+      }
 
       const statsResult = await pool.query(`
         SELECT 
@@ -570,18 +643,22 @@ router.get('/stats',
           SUM(CASE WHEN status = 'SCHEDULED' THEN 1 ELSE 0 END) as scheduled,
           SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
           SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
-        FROM repair_work_orders
-              JOIN hydrants h ON repair_work_orders.hydrant_id = h.id
-                    WHERE h.organization_id = $1
-      `,[organizationId]);
+        FROM repair_work_orders rwo
+        JOIN hydrants h ON rwo.hydrant_id = h.id
+        WHERE h.organization_id = $1
+      `, [organizationId]);
 
       res.json(statsResult.rows[0] || { total: 0, scheduled: 0, in_progress: 0, completed: 0 });
     } catch (error) {
       console.error('Error fetching maintenance stats:', error);
-      res.status(500).json({ error: 'Failed to fetch statistics' });
+      res.status(500).json({ 
+        error: 'Failed to fetch statistics',
+        message: 'An error occurred while loading statistics. Please try again.' 
+      });
     }
   }
 );
+
 
 // =============================================
 // WORK ORDER MANAGEMENT
