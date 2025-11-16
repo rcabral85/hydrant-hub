@@ -171,12 +171,13 @@ router.get('/inspections/hydrant/:hydrantId',
           it.regulatory_requirement,
           
           -- Visual Inspection Data
-          vi.paint_condition,
-          vi.body_condition,
-          vi.cap_condition,
-          vi.chains_condition,
-          vi.clearance_adequate,
-          vi.safety_hazards,
+vi.paint_condition,
+vi.cap_condition,
+vi.barrel_condition,
+vi.chain_condition,
+vi.repair_needed,
+vi.priority,
+
           
           -- Valve Inspection Data
           vale.main_valve_operation,
@@ -201,13 +202,14 @@ router.get('/inspections/hydrant/:hydrantId',
           
         FROM maintenance_inspections mi
         JOIN inspection_types it ON mi.inspection_type_id = it.id
-        LEFT JOIN visual_inspections vi ON mi.id = vi.maintenance_inspection_id
-        LEFT JOIN valve_inspections vale ON mi.id = vale.maintenance_inspection_id
-        LEFT JOIN repair_work_orders rwo ON mi.id = rwo.maintenance_inspection_id
+        LEFT JOIN visual_inspections vi ON mi.id = vi.inspection_id
+        LEFT JOIN valve_inspections vale ON mi.id = vale.inspection_id
+        LEFT JOIN repair_work_orders rwo ON mi.id = rwo.inspection_id
         ${whereClause}
-        GROUP BY mi.id, it.name, it.description, it.regulatory_requirement, 
-                 vi.paint_condition, vi.body_condition, vi.cap_condition, vi.chains_condition,
-                 vi.clearance_adequate, vi.safety_hazards, vale.main_valve_operation,
+        GROUP BY mi.id, it.name, it.description, it.regulatory_standard, 
+         vi.paint_condition, vi.cap_condition, vi.barrel_condition, vi.chain_condition,
+         vi.repair_needed, vi.priority, vale.main_valve_operation,
+
                  vale.static_pressure_psi, vale.valve_exercised, vale.repair_recommendations, vale.priority_level
         ORDER BY mi.inspection_date DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -235,10 +237,10 @@ router.post('/inspections/:inspectionId/visual',
   authMiddleware,
   upload.array('condition_photos', 15),
   [
-    param('inspectionId').isUUID().withMessage('Valid inspection ID required'),
-    body('paint_condition').isIn(['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL']),
-    body('body_condition').isIn(['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL']),
-    body('cap_condition').isIn(['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'MISSING'])
+    param('inspectionId').isInt().withMessage('Valid inspection ID required'),
+    body('paint_condition').optional().isIn(['GOOD', 'FAIR', 'POOR']),
+    body('barrel_condition').optional().isIn(['GOOD', 'FAIR', 'POOR']),
+    body('cap_condition').optional().isIn(['GOOD', 'DAMAGED', 'MISSING'])
   ],
   async (req, res) => {
     try {
@@ -251,61 +253,62 @@ router.post('/inspections/:inspectionId/visual',
       const photoUrls = req.files ? req.files.map(file => `/uploads/maintenance/${file.filename}`) : [];
 
       const {
-        paint_condition, paint_notes, body_condition, body_damage_notes,
-        cap_condition, cap_security, chains_present, chains_condition,
-        clearance_adequate, clearance_distance_feet, obstructions,
-        visible_from_road, reflective_markers_present, signage_adequate,
-        ground_condition, drainage_adequate, safety_hazards, immediate_action_required
+        paint_condition, paint_color, paint_notes,
+        cap_condition, cap_type, cap_secure, cap_notes,
+        barrel_condition, barrel_damage, barrel_notes,
+        nozzle_caps_present, nozzle_caps_condition, nozzle_caps_notes,
+        chain_present, chain_condition, chain_notes,
+        repair_needed, priority
       } = req.body;
 
       const result = await pool.query(`
         INSERT INTO visual_inspections (
-          maintenance_inspection_id, paint_condition, paint_notes, body_condition,
-          body_damage_notes, cap_condition, cap_security, chains_present,
-          chains_condition, clearance_adequate, clearance_distance_feet,
-          obstructions, visible_from_road, reflective_markers_present,
-          signage_adequate, ground_condition, drainage_adequate,
-          safety_hazards, immediate_action_required
+          inspection_id, paint_condition, paint_color, paint_notes,
+          cap_condition, cap_type, cap_secure, cap_notes,
+          barrel_condition, barrel_damage, barrel_notes,
+          nozzle_caps_present, nozzle_caps_condition, nozzle_caps_notes,
+          chain_present, chain_condition, chain_notes,
+          repair_needed, priority
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-        ON CONFLICT (maintenance_inspection_id) 
+        ON CONFLICT (inspection_id) 
         DO UPDATE SET
           paint_condition = EXCLUDED.paint_condition,
+          paint_color = EXCLUDED.paint_color,
           paint_notes = EXCLUDED.paint_notes,
-          body_condition = EXCLUDED.body_condition,
-          body_damage_notes = EXCLUDED.body_damage_notes,
           cap_condition = EXCLUDED.cap_condition,
-          cap_security = EXCLUDED.cap_security,
-          chains_present = EXCLUDED.chains_present,
-          chains_condition = EXCLUDED.chains_condition,
-          clearance_adequate = EXCLUDED.clearance_adequate,
-          clearance_distance_feet = EXCLUDED.clearance_distance_feet,
-          obstructions = EXCLUDED.obstructions,
-          visible_from_road = EXCLUDED.visible_from_road,
-          reflective_markers_present = EXCLUDED.reflective_markers_present,
-          signage_adequate = EXCLUDED.signage_adequate,
-          ground_condition = EXCLUDED.ground_condition,
-          drainage_adequate = EXCLUDED.drainage_adequate,
-          safety_hazards = EXCLUDED.safety_hazards,
-          immediate_action_required = EXCLUDED.immediate_action_required
+          cap_type = EXCLUDED.cap_type,
+          cap_secure = EXCLUDED.cap_secure,
+          cap_notes = EXCLUDED.cap_notes,
+          barrel_condition = EXCLUDED.barrel_condition,
+          barrel_damage = EXCLUDED.barrel_damage,
+          barrel_notes = EXCLUDED.barrel_notes,
+          nozzle_caps_present = EXCLUDED.nozzle_caps_present,
+          nozzle_caps_condition = EXCLUDED.nozzle_caps_condition,
+          nozzle_caps_notes = EXCLUDED.nozzle_caps_notes,
+          chain_present = EXCLUDED.chain_present,
+          chain_condition = EXCLUDED.chain_condition,
+          chain_notes = EXCLUDED.chain_notes,
+          repair_needed = EXCLUDED.repair_needed,
+          priority = EXCLUDED.priority
         RETURNING *
       `, [
-        inspectionId, paint_condition, paint_notes, body_condition,
-        body_damage_notes, cap_condition, cap_security, chains_present,
-        chains_condition, clearance_adequate, clearance_distance_feet,
-        obstructions, visible_from_road, reflective_markers_present,
-        signage_adequate, ground_condition, drainage_adequate,
-        safety_hazards, immediate_action_required
+        inspectionId, paint_condition, paint_color, paint_notes,
+        cap_condition, cap_type, cap_secure, cap_notes,
+        barrel_condition, barrel_damage, barrel_notes,
+        nozzle_caps_present, nozzle_caps_condition, nozzle_caps_notes,
+        chain_present, chain_condition, chain_notes,
+        repair_needed || false, priority || 'LOW'
       ]);
 
       // Auto-generate work orders for critical conditions
-      if (immediate_action_required || ['CRITICAL', 'POOR'].includes(paint_condition) || 
-          ['CRITICAL', 'POOR'].includes(body_condition) || cap_condition === 'MISSING') {
+      if (repair_needed || cap_condition === 'MISSING' || 
+          ['POOR'].includes(paint_condition) || ['POOR'].includes(barrel_condition)) {
         
         await generateWorkOrder(inspectionId, {
           hydrant_id: req.body.hydrant_id,
           title: 'Critical Maintenance Required - Visual Inspection',
-          description: `Visual inspection identified critical issues: ${safety_hazards || 'Multiple condition issues'}`,
-          priority: immediate_action_required ? 'CRITICAL' : 'HIGH',
+          description: `Visual inspection identified critical issues requiring repair`,
+          priority: priority || 'HIGH',
           category: 'SAFETY_HAZARD',
           created_by: req.user.id
         });
@@ -325,6 +328,7 @@ router.post('/inspections/:inspectionId/visual',
   }
 );
 
+
 // =============================================
 // VALVE OPERATION MODULE
 // =============================================
@@ -334,7 +338,7 @@ router.post('/inspections/:inspectionId/valve',
   authMiddleware,
   upload.array('valve_photos', 10),
   [
-    param('inspectionId').isUUID().withMessage('Valid inspection ID required'),
+param('inspectionId').isInt().withMessage('Valid inspection ID required'),
     body('main_valve_operation').isIn(['SMOOTH', 'STIFF', 'BINDING', 'INOPERABLE']),
     body('static_pressure_psi').optional().isFloat({ min: 0, max: 200 })
   ],
@@ -361,7 +365,7 @@ router.post('/inspections/:inspectionId/valve',
 
       const result = await pool.query(`
         INSERT INTO valve_inspections (
-          maintenance_inspection_id, main_valve_type, main_valve_operation,
+          inspection_id, main_valve_type, main_valve_operation,
           main_valve_turns_to_close, main_valve_turns_to_open, main_valve_leak_detected,
           main_valve_notes, operating_nut_condition, operating_nut_security,
           drain_valve_present, drain_valve_operation, drain_valve_leak,
@@ -372,7 +376,7 @@ router.post('/inspections/:inspectionId/valve',
           lubrication_applied, lubrication_type, performance_issues,
           repair_recommendations, priority_level
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
-        ON CONFLICT (maintenance_inspection_id)
+        ON CONFLICT (inspection_id)
         DO UPDATE SET
           main_valve_operation = EXCLUDED.main_valve_operation,
           main_valve_turns_to_close = EXCLUDED.main_valve_turns_to_close,
@@ -484,7 +488,7 @@ router.get('/inspections',
         SELECT 
           mi.*,
           h.hydrant_number,
-          h.location_address,
+          h.address,
           it.name as inspection_type
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
@@ -557,11 +561,11 @@ router.get('/work-orders',
         SELECT 
           rwo.*,
           h.hydrant_number,
-          h.location_address,
+          h.address,
           CASE 
             WHEN rwo.status = 'COMPLETED' THEN 100
             WHEN rwo.status = 'IN_PROGRESS' THEN 50
-            WHEN rwo.status = 'SCHEDULED' THEN 25
+            WHEN rwo.status = 'PENDING' THEN 25
             ELSE 0
           END as progress
         FROM repair_work_orders rwo
@@ -574,7 +578,7 @@ router.get('/work-orders',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.created_date DESC
+          rwo.created_at DESC
         LIMIT 50
       `, [organizationId]);
 
@@ -640,7 +644,7 @@ router.get('/stats',
       const statsResult = await pool.query(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN status = 'SCHEDULED' THEN 1 ELSE 0 END) as scheduled,
+          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as scheduled,
           SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
           SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
         FROM repair_work_orders rwo
@@ -697,19 +701,19 @@ router.get('/work-orders/hydrant/:hydrantId',
           CASE 
             WHEN rwo.status = 'COMPLETED' THEN 100
             WHEN rwo.status = 'IN_PROGRESS' THEN 50
-            WHEN rwo.status = 'SCHEDULED' THEN 25
+            WHEN rwo.status = 'PENDING' THEN 25
             ELSE 0
           END as progress_percentage,
           
           -- Overdue Status
           CASE 
-            WHEN rwo.target_completion_date < CURRENT_DATE AND rwo.status NOT IN ('COMPLETED', 'CANCELLED') 
+            WHEN rwo.due_date < CURRENT_DATE AND rwo.status NOT IN ('COMPLETED', 'CANCELLED') 
             THEN true 
             ELSE false 
           END as is_overdue
           
         FROM repair_work_orders rwo
-        LEFT JOIN maintenance_inspections mi ON rwo.maintenance_inspection_id = mi.id
+        LEFT JOIN maintenance_inspections mi ON rwo.inspection_id = mi.id
         LEFT JOIN inspection_types it ON mi.inspection_type_id = it.id
         ${whereClause}
         ORDER BY 
@@ -719,8 +723,8 @@ router.get('/work-orders/hydrant/:hydrantId',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.scheduled_date ASC NULLS LAST,
-          rwo.created_date ASC
+          rwo.assigned_date ASC NULLS LAST,
+          rwo.created_at ASC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `, [...params, limit, offset]);
 
@@ -737,12 +741,13 @@ router.get('/work-orders/hydrant/:hydrantId',
   }
 );
 
+
 // Update work order status
 router.patch('/work-orders/:workOrderId',
   authMiddleware,
   upload.array('completion_photos', 10),
   [
-    param('workOrderId').isUUID(),
+    param('workOrderId').isInt(),
     body('status').optional().isIn(['CREATED', 'SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED', 'DEFERRED'])
   ],
   async (req, res) => {
@@ -881,7 +886,7 @@ router.get('/compliance/schedule',
         SELECT 
           cs.*,
           h.hydrant_number,
-          h.location_address,
+          h.address,
           h.latitude,
           h.longitude,
           it.name as inspection_type,
@@ -947,7 +952,7 @@ router.get('/compliance/report',
       const overdueInspections = await pool.query(`
         SELECT 
           h.hydrant_number,
-          h.location_address,
+          h.address,
           it.name as inspection_type,
           cs.due_date,
           CURRENT_DATE - cs.due_date as days_overdue,
@@ -1017,16 +1022,17 @@ router.get('/compliance/report',
 // =============================================
 
 // Auto-generate work order from inspection
+// Auto-generate work order from inspection
 async function generateWorkOrder(inspectionId, workOrderData) {
   const workOrderNumber = 'WO-' + new Date().getFullYear() + '-' + 
                          String(Date.now()).slice(-6);
   
   await pool.query(`
     INSERT INTO repair_work_orders (
-      hydrant_id, maintenance_inspection_id, work_order_number,
-      title, description, priority, category, created_by,
-      target_completion_date
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_DATE + INTERVAL '30 days')
+      hydrant_id, inspection_id, work_order_number,
+      title, description, priority, created_by,
+      due_date
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE + INTERVAL '30 days')
   `, [
     workOrderData.hydrant_id,
     inspectionId,
@@ -1034,11 +1040,12 @@ async function generateWorkOrder(inspectionId, workOrderData) {
     workOrderData.title,
     workOrderData.description,
     workOrderData.priority,
-    workOrderData.category,
     workOrderData.created_by
   ]);
 }
 
+
+/* DISABLED - inspection_checklist_templates table not created yet
 // Get inspection checklist template
 router.get('/checklist/:inspectionTypeId',
   authMiddleware,
@@ -1077,5 +1084,7 @@ router.get('/checklist/:inspectionTypeId',
     }
   }
 );
+*/
 
 module.exports = router;
+
