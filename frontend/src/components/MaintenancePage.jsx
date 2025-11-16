@@ -52,12 +52,16 @@ export default function MaintenancePage() {
       setLoading(true);
       setError(null);
       
-      const [inspectionsRes, workOrdersRes, statsRes, complianceRes] = await Promise.all([
-        api.get('/maintenance/inspections'),
-        api.get('/maintenance/work-orders'),
-        api.get('/maintenance/stats'),
-        api.get('/maintenance/compliance/schedule')
-      ]);
+      // Fetch data (compliance/schedule endpoint disabled for now)
+const [inspectionsRes, workOrdersRes, statsRes] = await Promise.all([
+  api.get('/maintenance/inspections'),
+  api.get('/maintenance/work-orders'),
+  api.get('/maintenance/stats')
+]);
+
+// Mock empty compliance data since endpoint is disabled
+const complianceRes = { data: { schedule: [], total: 0 } };
+
       
       setInspections(inspectionsRes.data || []);
       setWorkOrders(workOrdersRes.data || []);

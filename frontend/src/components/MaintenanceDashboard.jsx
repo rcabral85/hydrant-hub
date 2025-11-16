@@ -28,15 +28,16 @@ const MaintenanceDashboard = () => {
       setLoading(true);
       
       // Fetch multiple endpoints concurrently
-      const [statsRes, scheduleRes, workOrdersRes, complianceRes] = await Promise.all([
-        API.get('/maintenance/stats'),
-        API.get('/maintenance/compliance/schedule?status=SCHEDULED&end_date=' + 
-               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-        API.get('/maintenance/work-orders?status=IN_PROGRESS,SCHEDULED&limit=10'),
-        API.get('/maintenance/compliance/report?start_date=' + 
-               new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] +
-               '&end_date=' + new Date().toISOString().split('T')[0])
-      ]);
+// Note: compliance/schedule and compliance/report endpoints are disabled for now
+const [statsRes, workOrdersRes] = await Promise.all([
+  API.get('/maintenance/stats'),
+  API.get('/maintenance/work-orders?status=IN_PROGRESS,SCHEDULED&limit=10')
+]);
+
+// Set empty data for disabled endpoints
+const scheduleRes = { data: { schedule: [], total: 0 } };
+const complianceRes = { data: { report: {}, summary: {} } };
+
 
       // Process the data
       const upcomingInspections = scheduleRes.data.schedule.filter(
@@ -293,7 +294,7 @@ const MaintenanceDashboard = () => {
                           <td>
                             <small>{new Date(wo.target_completion_date).toLocaleDateString()}</small>
                             {wo.is_overdue && (
-                              <br /><small className="text-danger fw-bold">OVERDUE</small>
+                              <><br /><small className="text-danger fw-bold">OVERDUE</small></>
                             )}
                           </td>
                         </tr>
