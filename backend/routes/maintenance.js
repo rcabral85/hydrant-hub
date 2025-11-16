@@ -201,7 +201,7 @@ vi.priority,
           ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
           
         FROM maintenance_inspections mi
-        JOIN inspection_types it ON mi.inspection_type_id = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.id
         LEFT JOIN visual_inspections vi ON mi.id = vi.inspection_id
         LEFT JOIN valve_inspections vale ON mi.id = vale.inspection_id
         LEFT JOIN repair_work_orders rwo ON mi.id = rwo.inspection_id
@@ -492,7 +492,7 @@ router.get('/inspections',
           it.name as inspection_type
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
-        JOIN inspection_types it ON mi.inspection_type_id = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.id
         WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
@@ -644,9 +644,10 @@ router.get('/stats',
       const statsResult = await pool.query(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as scheduled,
-          SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
-          SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
+          SUM(CASE WHEN rwo.status = 'PENDING' THEN 1 ELSE 0 END) as scheduled,
+SUM(CASE WHEN rwo.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
+SUM(CASE WHEN rwo.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
+
         FROM repair_work_orders rwo
         JOIN hydrants h ON rwo.hydrant_id = h.id
         WHERE h.organization_id = $1
@@ -714,7 +715,7 @@ router.get('/work-orders/hydrant/:hydrantId',
           
         FROM repair_work_orders rwo
         LEFT JOIN maintenance_inspections mi ON rwo.inspection_id = mi.id
-        LEFT JOIN inspection_types it ON mi.inspection_type_id = it.id
+        LEFT JOIN inspection_types it ON mi.inspection_type = it.id
         ${whereClause}
         ORDER BY 
           CASE rwo.priority 
@@ -904,7 +905,7 @@ router.get('/compliance/schedule',
         FROM compliance_schedule cs
         JOIN hydrants h ON cs.hydrant_id = h.id
         JOIN inspection_types it ON cs.inspection_type_id = it.id
-        LEFT JOIN maintenance_inspections mi ON cs.completed_inspection_id = mi.id
+        LEFT JOIN maintenance_inspections mi ON cs.last_inspection_id = mi.id
         ${whereClause}
         ORDER BY 
           CASE cs.status
