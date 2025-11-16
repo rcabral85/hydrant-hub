@@ -201,12 +201,14 @@ vi.priority,
           ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
           
         FROM maintenance_inspections mi
-        JOIN inspection_types it ON mi.inspection_type = it.name
-        LEFT JOIN visual_inspections vi ON mi.id = vi.inspection_id
-        LEFT JOIN valve_inspections vale ON mi.id = vale.inspection_id
-        LEFT JOIN repair_work_orders rwo ON mi.id = rwo.inspection_id
+        JOIN inspection_types it ON mi.inspection_type_id = it.id
+
+        LEFT JOIN visual_inspections vi ON mi.id = vi.maintenance_inspection_id
+LEFT JOIN valve_inspections vale ON mi.id = vale.maintenance_inspection_id
+LEFT JOIN repair_work_orders rwo ON mi.id = rwo.maintenance_inspection_id
+
         ${whereClause}
-        GROUP BY mi.id, it.name, it.description, it.regulatory_standard, 
+GROUP BY mi.id, it.name, it.description, it.regulatory_requirement,
          vi.paint_condition, vi.cap_condition, vi.barrel_condition, vi.chain_condition,
          vi.repair_needed, vi.priority, vale.main_valve_operation,
 
@@ -263,14 +265,14 @@ router.post('/inspections/:inspectionId/visual',
 
       const result = await pool.query(`
         INSERT INTO visual_inspections (
-          inspection_id, paint_condition, paint_color, paint_notes,
+          maintenance_inspection_id, paint_condition, paint_color, paint_notes,
           cap_condition, cap_type, cap_secure, cap_notes,
           barrel_condition, barrel_damage, barrel_notes,
           nozzle_caps_present, nozzle_caps_condition, nozzle_caps_notes,
           chain_present, chain_condition, chain_notes,
           repair_needed, priority
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-        ON CONFLICT (inspection_id) 
+        ON CONFLICT (maintenance_inspection_id) 
         DO UPDATE SET
           paint_condition = EXCLUDED.paint_condition,
           paint_color = EXCLUDED.paint_color,
@@ -365,7 +367,7 @@ param('inspectionId').isInt().withMessage('Valid inspection ID required'),
 
       const result = await pool.query(`
         INSERT INTO valve_inspections (
-          inspection_id, main_valve_type, main_valve_operation,
+          maintenance_inspection_id, main_valve_type, main_valve_operation,
           main_valve_turns_to_close, main_valve_turns_to_open, main_valve_leak_detected,
           main_valve_notes, operating_nut_condition, operating_nut_security,
           drain_valve_present, drain_valve_operation, drain_valve_leak,
@@ -376,7 +378,7 @@ param('inspectionId').isInt().withMessage('Valid inspection ID required'),
           lubrication_applied, lubrication_type, performance_issues,
           repair_recommendations, priority_level
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
-        ON CONFLICT (inspection_id)
+        ON CONFLICT (maintenance_inspection_id)
         DO UPDATE SET
           main_valve_operation = EXCLUDED.main_valve_operation,
           main_valve_turns_to_close = EXCLUDED.main_valve_turns_to_close,
@@ -492,7 +494,7 @@ router.get('/inspections',
           it.name as inspection_type
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
-        JOIN inspection_types it ON mi.inspection_type = it.name
+        JOIN inspection_types it ON mi.inspection_type_id = it.id
         WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
@@ -578,7 +580,7 @@ router.get('/work-orders',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.created_at DESC
+          rwo.created_date DESC
         LIMIT 50
       `, [organizationId]);
 
@@ -708,14 +710,14 @@ router.get('/work-orders/hydrant/:hydrantId',
           
           -- Overdue Status
           CASE 
-            WHEN rwo.due_date < CURRENT_DATE AND rwo.status NOT IN ('COMPLETED', 'CANCELLED') 
+            WHEN rwo.target_completion_date < CURRENT_DATE AND rwo.status NOT IN ('COMPLETED', 'CANCELLED') 
             THEN true 
             ELSE false 
           END as is_overdue
           
         FROM repair_work_orders rwo
-        LEFT JOIN maintenance_inspections mi ON rwo.inspection_id = mi.id
-        LEFT JOIN inspection_types it ON mi.inspection_type = it.name
+        LEFT JOIN maintenance_inspections mi ON rwo.maintenance_inspection_id = mi.id
+        LEFT JOIN inspection_types it ON mi.inspection_type_id = it.id
         ${whereClause}
         ORDER BY 
           CASE rwo.priority 
@@ -724,8 +726,9 @@ router.get('/work-orders/hydrant/:hydrantId',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.assigned_date ASC NULLS LAST,
-          rwo.created_at ASC
+          rwo.scheduled_date ASC NULLS LAST,
+rwo.created_date ASC
+
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `, [...params, limit, offset]);
 
@@ -905,7 +908,7 @@ router.get('/compliance/schedule',
         FROM compliance_schedule cs
         JOIN hydrants h ON cs.hydrant_id = h.id
         JOIN inspection_types it ON cs.inspection_type_id = it.id
-        LEFT JOIN maintenance_inspections mi ON cs.last_inspection_id = mi.id
+LEFT JOIN maintenance_inspections mi ON cs.completed_inspection_id = mi.id
         ${whereClause}
         ORDER BY 
           CASE cs.status
@@ -1123,9 +1126,9 @@ async function generateWorkOrder(inspectionId, workOrderData) {
   
   await pool.query(`
     INSERT INTO repair_work_orders (
-      hydrant_id, inspection_id, work_order_number,
+      hydrant_id, maintenance_inspection_id, work_order_number,
       title, description, priority, created_by,
-      due_date
+      target_completion_date
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE + INTERVAL '30 days')
   `, [
     workOrderData.hydrant_id,
