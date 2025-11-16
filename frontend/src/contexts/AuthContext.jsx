@@ -209,20 +209,37 @@ export function AuthProvider({ children }) {
   };
 
   // Logout function
-  const logout = () => {
-    authService.logout();
-        
-    // Clear all localStorage items
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('hydrantHub_token');
-    localStorage.removeItem('hydrantHub_refreshToken');
-    localStorage.removeItem('hydrantHub_user');
-    
-    dispatch({ type: AUTH_ACTIONS.LOGOUT });
-    toast.info('You have been logged out.');
+// Logout function - FIXED VERSION
+  const logout = async () => {
+    try {
+      // Clear all localStorage items FIRST before any other actions
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('hydrantHub_token');
+      localStorage.removeItem('hydrantHub_refreshToken');
+      localStorage.removeItem('hydrantHub_user');
+      
+      // Call authService logout
+      authService.logout();
+      
+      // Dispatch logout action to update state
+      dispatch({ type: AUTH_ACTIONS.LOGOUT });
+      
+      // Show toast notification
+      toast.info('You have been logged out.');
+      
+      // Wait a moment to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force redirect to login page
       window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if there's an error
+      localStorage.clear();
+      window.location.href = '/login';
+    }
   };
 
   // Update profile function
