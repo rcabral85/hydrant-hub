@@ -845,6 +845,7 @@ router.patch('/work-orders/:workOrderId',
 // COMPLIANCE & SCHEDULING
 // =============================================
 
+/* DISABLED - compliance_schedule table structure needs verification
 // Get compliance schedule for municipality/organization
 router.get('/compliance/schedule',
   authMiddleware,
@@ -899,17 +900,11 @@ router.get('/compliance/schedule',
           it.regulatory_requirement,
           
           -- Days until due/overdue
-          cs.due_date - CURRENT_DATE as days_until_due,
-          
-          -- Last inspection info
-          mi.inspection_date as last_inspection_date,
-          mi.overall_status as last_inspection_status,
-          mi.inspector_name as last_inspector
+          cs.due_date - CURRENT_DATE as days_until_due
           
         FROM compliance_schedule cs
         JOIN hydrants h ON cs.hydrant_id = h.id
         JOIN inspection_types it ON cs.inspection_type_id = it.id
-LEFT JOIN maintenance_inspections mi ON cs.completed_inspection_id = mi.id
         ${whereClause}
         ORDER BY 
           CASE cs.status
@@ -932,6 +927,100 @@ LEFT JOIN maintenance_inspections mi ON cs.completed_inspection_id = mi.id
     }
   }
 );
+
+// Generate compliance report (for audits)
+router.get('/compliance/report',
+  authMiddleware,
+  [
+    query('start_date').isISO8601().withMessage('Start date required'),
+    query('end_date').isISO8601().withMessage('End date required'),
+    query('format').optional().isIn(['json', 'pdf'])
+  ],
+  async (req, res) => {
+    try {
+      const { start_date, end_date, format = 'json' } = req.query;
+
+      // Get compliance statistics
+      const complianceStats = await pool.query(`
+        SELECT * FROM audit_compliance_report
+        WHERE inspection_year >= EXTRACT(YEAR FROM $1::date)
+          AND inspection_year <= EXTRACT(YEAR FROM $2::date)
+        ORDER BY inspection_year DESC, inspection_month DESC
+      `, [start_date, end_date]);
+
+      // Get overdue inspections
+      const overdueInspections = await pool.query(`
+        SELECT 
+          h.hydrant_number,
+          h.address,
+          it.name as inspection_type,
+          cs.due_date,
+          CURRENT_DATE - cs.due_date as days_overdue,
+          cs.overdue_notification_sent
+        FROM compliance_schedule cs
+        JOIN hydrants h ON cs.hydrant_id = h.id
+        JOIN inspection_types it ON cs.inspection_type_id = it.id
+        WHERE cs.status = 'OVERDUE'
+          AND cs.due_date BETWEEN $1 AND $2
+        ORDER BY days_overdue DESC
+      `, [start_date, end_date]);
+
+      // Get maintenance summary
+      const maintenanceSummary = await pool.query(`
+        SELECT 
+          action_type,
+          COUNT(*) as total_actions,
+          SUM(cost) as total_cost,
+          AVG(labor_hours) as avg_labor_hours
+        FROM maintenance_history
+        WHERE action_date BETWEEN $1 AND $2
+        GROUP BY action_type
+        ORDER BY total_actions DESC
+      `, [start_date, end_date]);
+
+      const report = {
+        report_period: { start_date, end_date },
+        generated_at: new Date().toISOString(),
+        generated_by: req.user.username,
+        
+        compliance_statistics: complianceStats.rows,
+        overdue_inspections: overdueInspections.rows,
+        maintenance_summary: maintenanceSummary.rows,
+        
+        summary: {
+          total_inspections: complianceStats.rows.reduce((sum, row) => sum + row.total_inspections, 0),
+          compliance_rate: complianceStats.rows.length > 0 
+            ? (complianceStats.rows.reduce((sum, row) => sum + row.compliant_inspections, 0) / 
+               complianceStats.rows.reduce((sum, row) => sum + row.total_inspections, 0) * 100).toFixed(2) + '%'
+            : '0%',
+          overdue_count: overdueInspections.rows.length,
+          total_maintenance_cost: maintenanceSummary.rows.reduce((sum, row) => sum + (row.total_cost || 0), 0)
+        }
+      };
+
+      if (format === 'pdf') {
+        // TODO: Generate PDF report using puppeteer or similar
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=compliance-report-${start_date}-to-${end_date}.pdf`);
+        // For now, return JSON - PDF generation would be implemented here
+      }
+
+      res.json({
+        success: true,
+        report: report
+      });
+
+    } catch (error) {
+      console.error('Error generating compliance report:', error);
+      res.status(500).json({ error: 'Failed to generate compliance report' });
+    }
+  }
+);
+*/
+
+// =============================================
+// UTILITY FUNCTIONS
+// =============================================
 
 // =============================================
 // COMPLIANCE & SCHEDULING
