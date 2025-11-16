@@ -17,6 +17,15 @@ router.use(authenticateToken);
  */
 router.get('/metrics', operatorOrAdmin, async (req, res) => {
   try {
+        // Validate user and get organization
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    if (!req.user.organization_id) {
+      return res.status(403).json({ error: 'User has no organization' });
+    }
+
     const organizationId = req.user.organization_id;
     
     console.log('=== DASHBOARD DEBUG ===');
