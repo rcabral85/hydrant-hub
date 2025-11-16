@@ -201,7 +201,7 @@ vi.priority,
           ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
           
         FROM maintenance_inspections mi
-        JOIN inspection_types it ON mi.inspection_type = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.name
         LEFT JOIN visual_inspections vi ON mi.id = vi.inspection_id
         LEFT JOIN valve_inspections vale ON mi.id = vale.inspection_id
         LEFT JOIN repair_work_orders rwo ON mi.id = rwo.inspection_id
@@ -492,7 +492,7 @@ router.get('/inspections',
           it.name as inspection_type
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
-        JOIN inspection_types it ON mi.inspection_type = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.name
         WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
@@ -715,7 +715,7 @@ router.get('/work-orders/hydrant/:hydrantId',
           
         FROM repair_work_orders rwo
         LEFT JOIN maintenance_inspections mi ON rwo.inspection_id = mi.id
-        LEFT JOIN inspection_types it ON mi.inspection_type = it.id
+        LEFT JOIN inspection_types it ON mi.inspection_type = it.name
         ${whereClause}
         ORDER BY 
           CASE rwo.priority 
@@ -929,6 +929,99 @@ router.get('/compliance/schedule',
   }
 );
 
+// =============================================
+// COMPLIANCE & SCHEDULING
+// =============================================
+
+/* DISABLED - compliance_schedule table structure needs verification
+// Get compliance schedule for municipality/organization
+router.get('/compliance/schedule',
+  authMiddleware,
+  [
+    query('start_date').optional().isISO8601(),
+    query('end_date').optional().isISO8601(),
+    query('status').optional().isIn(['SCHEDULED', 'OVERDUE', 'COMPLETED', 'DEFERRED'])
+  ],
+  async (req, res) => {
+    try {
+      const { start_date, end_date, status = 'all', hydrant_id } = req.query;
+      
+      let whereConditions = [];
+      let params = [];
+      let paramCount = 1;
+
+      if (start_date) {
+        whereConditions.push(`cs.due_date >= $${paramCount}`);
+        params.push(start_date);
+        paramCount++;
+      }
+      
+      if (end_date) {
+        whereConditions.push(`cs.due_date <= $${paramCount}`);
+        params.push(end_date);
+        paramCount++;
+      }
+      
+      if (status !== 'all') {
+        whereConditions.push(`cs.status = $${paramCount}`);
+        params.push(status);
+        paramCount++;
+      }
+      
+      if (hydrant_id) {
+        whereConditions.push(`cs.hydrant_id = $${paramCount}`);
+        params.push(hydrant_id);
+        paramCount++;
+      }
+
+      const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+      const result = await pool.query(`
+        SELECT 
+          cs.*,
+          h.hydrant_number,
+          h.address,
+          h.latitude,
+          h.longitude,
+          it.name as inspection_type,
+          it.description as inspection_description,
+          it.regulatory_requirement,
+          
+          -- Days until due/overdue
+          cs.due_date - CURRENT_DATE as days_until_due,
+          
+          -- Last inspection info
+          mi.inspection_date as last_inspection_date,
+          mi.overall_status as last_inspection_status,
+          mi.inspector_name as last_inspector
+          
+        FROM compliance_schedule cs
+        JOIN hydrants h ON cs.hydrant_id = h.id
+        JOIN inspection_types it ON cs.inspection_type_id = it.id
+        LEFT JOIN maintenance_inspections mi ON cs.last_inspection_id = mi.id
+        ${whereClause}
+        ORDER BY 
+          CASE cs.status
+            WHEN 'OVERDUE' THEN 1
+            WHEN 'SCHEDULED' THEN 2
+            ELSE 3
+          END,
+          cs.due_date ASC
+      `, params);
+
+      res.json({
+        success: true,
+        schedule: result.rows,
+        total: result.rows.length
+      });
+
+    } catch (error) {
+      console.error('Error fetching compliance schedule:', error);
+      res.status(500).json({ error: 'Failed to fetch compliance schedule' });
+    }
+  }
+);
+
 // Generate compliance report (for audits)
 router.get('/compliance/report',
   authMiddleware,
@@ -1017,12 +1110,12 @@ router.get('/compliance/report',
     }
   }
 );
+*/
 
 // =============================================
 // UTILITY FUNCTIONS
 // =============================================
 
-// Auto-generate work order from inspection
 // Auto-generate work order from inspection
 async function generateWorkOrder(inspectionId, workOrderData) {
   const workOrderNumber = 'WO-' + new Date().getFullYear() + '-' + 
@@ -1044,7 +1137,6 @@ async function generateWorkOrder(inspectionId, workOrderData) {
     workOrderData.created_by
   ]);
 }
-
 
 /* DISABLED - inspection_checklist_templates table not created yet
 // Get inspection checklist template
@@ -1088,4 +1180,3 @@ router.get('/checklist/:inspectionTypeId',
 */
 
 module.exports = router;
-
