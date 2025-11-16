@@ -53,7 +53,7 @@ const hydrantRoutes = require('./routes/hydrants');
 const orgSignupRoutes = require('./routes/org-signup');
 const bulkImportRoutes = require('./routes/bulkImport');
 const dashboardRoutes = require('./routes/dashboard');
-//const maintenanceRoutes = require('./routes/maintenance');
+const maintenanceRoutes = require('./routes/maintenance');
 
 // API Routes - Order matters! More specific routes first!
 
@@ -69,7 +69,7 @@ app.use('/api/hydrants', hydrantRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/tests', flowTestRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-//app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 // ==================== Maintenance Routes ====================
 
