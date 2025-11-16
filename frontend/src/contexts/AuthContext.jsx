@@ -222,6 +222,7 @@ export function AuthProvider({ children }) {
     
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
     toast.info('You have been logged out.');
+      window.location.href = '/login';
   };
 
   // Update profile function
