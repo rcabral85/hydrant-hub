@@ -580,7 +580,7 @@ router.get('/work-orders',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.created_date DESC
+          rwo.created_at DESC    ← CHANGED THIS
         LIMIT 50
       `, [organizationId]);
 
@@ -594,6 +594,7 @@ router.get('/work-orders',
     }
   }
 );
+
 
 
 // Get maintenance statistics for the organization
@@ -727,7 +728,7 @@ router.get('/work-orders/hydrant/:hydrantId',
             WHEN 'LOW' THEN 4
           END,
           rwo.scheduled_date ASC NULLS LAST,
-rwo.created_date ASC
+rwo.created_at ASC
 
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `, [...params, limit, offset]);
