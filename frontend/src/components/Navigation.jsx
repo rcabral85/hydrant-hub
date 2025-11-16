@@ -24,6 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { useAuth } from '../contexts/AuthContext';
 
 const Navigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -52,20 +53,10 @@ const Navigation = () => {
   };
 
   const handleLogout = () => {
-    // Clear all authentication tokens and data
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('hydrantHub_token');
-    localStorage.removeItem('hydrantHub_user');
-    
-    // Close mobile menu if open
-    setMobileOpen(false);
-    
-    // Navigate to login page
-    navigate('/login', { replace: true });
-  };
+  setMobileOpen(false); // Close mobile menu if open
+  logout(); // Call AuthContext logout
+};
+
 
   const handleNavigation = (path) => {
     setMobileOpen(false);
