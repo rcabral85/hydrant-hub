@@ -201,7 +201,7 @@ vi.priority,
           ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
           
         FROM maintenance_inspections mi
-        JOIN inspection_types it ON mi.inspection_type_id = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.name
 
         LEFT JOIN visual_inspections vi ON mi.id = vi.maintenance_inspection_id
 LEFT JOIN valve_inspections vale ON mi.id = vale.maintenance_inspection_id
@@ -494,7 +494,7 @@ router.get('/inspections',
           it.name as inspection_type
         FROM maintenance_inspections mi
         JOIN hydrants h ON mi.hydrant_id = h.id
-        JOIN inspection_types it ON mi.inspection_type_id = it.id
+        JOIN inspection_types it ON mi.inspection_type = it.name
         WHERE h.organization_id = $1
         ORDER BY mi.inspection_date DESC
         LIMIT 50
@@ -580,7 +580,7 @@ router.get('/work-orders',
             WHEN 'MEDIUM' THEN 3
             WHEN 'LOW' THEN 4
           END,
-          rwo.created_at DESC    ← CHANGED THIS
+          rwo.created_at DESC
         LIMIT 50
       `, [organizationId]);
 
@@ -718,7 +718,7 @@ router.get('/work-orders/hydrant/:hydrantId',
           
         FROM repair_work_orders rwo
         LEFT JOIN maintenance_inspections mi ON rwo.maintenance_inspection_id = mi.id
-        LEFT JOIN inspection_types it ON mi.inspection_type_id = it.id
+        LEFT JOIN inspection_types it ON mi.inspection_type = it.name
         ${whereClause}
         ORDER BY 
           CASE rwo.priority 
