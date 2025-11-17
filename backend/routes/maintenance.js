@@ -164,48 +164,50 @@ router.get('/inspections/hydrant/:hydrantId',
       }
 
       const result = await pool.query(`
-        SELECT 
-          mi.*,
-          it.name as inspection_type,
-          it.description as inspection_description,
-          it.regulatory_requirement,
-          
-          -- Visual Inspection Data
-vi.paint_condition,
-vi.cap_condition,
-vi.barrel_condition,
-vi.chain_condition,
-vi.repair_needed,
-vi.priority,
-
-          
-          -- Valve Inspection Data
-          vale.main_valve_operation,
-          vale.static_pressure_psi,
-          vale.valve_exercised,
-          vale.repair_recommendations,
-          vale.priority_level,
-          
-          -- Work Orders Generated
-          array_agg(
-            CASE WHEN rwo.id IS NOT NULL THEN
-              json_build_object(
-                'id', rwo.id,
-                'work_order_number', rwo.work_order_number,
-                'title', rwo.title,
-                'priority', rwo.priority,
-                'status', rwo.status,
-                'scheduled_date', rwo.scheduled_date
-              )
-            END
-          ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
-          
-        FROM maintenance_inspections mi
-        JOIN inspection_types it ON mi.inspection_type = it.name
-
-        LEFT JOIN visual_inspections vi ON mi.id = vi.maintenance_inspection_id
+ SELECT 
+  mi.*,
+  
+  -- Visual Inspection Data
+  vi.paint_condition,
+  vi.cap_condition,
+  vi.barrel_condition,
+  vi.chain_condition,
+  vi.repair_needed,
+  vi.priority,
+  
+  -- Valve Inspection Data
+  vale.main_valve_operation,
+  vale.static_pressure_psi,
+  vale.valve_exercised,
+  vale.repair_recommendations,
+  vale.priority_level,
+  
+  -- Work Orders Generated
+  array_agg(
+    CASE WHEN rwo.id IS NOT NULL THEN
+      json_build_object(
+        'id', rwo.id,
+        'work_order_number', rwo.work_order_number,
+        'title', rwo.title,
+        'priority', rwo.priority,
+        'status', rwo.status,
+        'scheduled_date', rwo.scheduled_date
+      )
+    END
+  ) FILTER (WHERE rwo.id IS NOT NULL) as work_orders
+  
+FROM maintenance_inspections mi
+LEFT JOIN visual_inspections vi ON mi.id = vi.maintenance_inspection_id
 LEFT JOIN valve_inspections vale ON mi.id = vale.maintenance_inspection_id
 LEFT JOIN repair_work_orders rwo ON mi.id = rwo.maintenance_inspection_id
+${whereClause}
+GROUP BY mi.id,
+         vi.paint_condition, vi.cap_condition, vi.barrel_condition, vi.chain_condition,
+         vi.repair_needed, vi.priority, vale.main_valve_operation,
+         vale.static_pressure_psi, vale.valve_exercised, vale.repair_recommendations, vale.priority_level
+ORDER BY mi.inspection_date DESC
+LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+
 
         ${whereClause}
 GROUP BY mi.id, it.name, it.description, it.regulatory_requirement,
@@ -487,18 +489,17 @@ router.get('/inspections',
       }
 
       const result = await pool.query(`
-        SELECT 
-          mi.*,
-          h.hydrant_number,
-          h.address,
-          it.name as inspection_type
-        FROM maintenance_inspections mi
-        JOIN hydrants h ON mi.hydrant_id = h.id
-        JOIN inspection_types it ON mi.inspection_type = it.name
-        WHERE h.organization_id = $1
-        ORDER BY mi.inspection_date DESC
-        LIMIT 50
-      `, [organizationId]);
+  SELECT 
+    mi.*,
+    h.hydrant_number,
+    h.address
+  FROM maintenance_inspections mi
+  JOIN hydrants h ON mi.hydrant_id = h.id
+  WHERE h.organization_id = $1
+  ORDER BY mi.inspection_date DESC
+  LIMIT 50
+`, [organizationId]);
+
 
       res.json(result.rows || []);
     } catch (error) {
@@ -696,29 +697,15 @@ router.get('/work-orders/hydrant/:hydrantId',
 
       const result = await pool.query(`
         SELECT 
-          rwo.*,
-          mi.inspection_date,
-          mi.inspector_name,
-          it.name as inspection_type,
-          
-          -- Progress Tracking
-          CASE 
-            WHEN rwo.status = 'COMPLETED' THEN 100
-            WHEN rwo.status = 'IN_PROGRESS' THEN 50
-            WHEN rwo.status = 'PENDING' THEN 25
-            ELSE 0
-          END as progress_percentage,
-          
-          -- Overdue Status
-          CASE 
-            WHEN rwo.target_completion_date < CURRENT_DATE AND rwo.status NOT IN ('COMPLETED', 'CANCELLED') 
-            THEN true 
-            ELSE false 
-          END as is_overdue
-          
-        FROM repair_work_orders rwo
-        LEFT JOIN maintenance_inspections mi ON rwo.maintenance_inspection_id = mi.id
-        LEFT JOIN inspection_types it ON mi.inspection_type = it.name
+  rwo.*,
+  mi.inspection_date,
+  mi.inspector_name,
+  mi.inspection_type,
+  ...
+FROM repair_work_orders rwo
+LEFT JOIN maintenance_inspections mi ON rwo.maintenance_inspection_id = mi.id
+
+
         ${whereClause}
         ORDER BY 
           CASE rwo.priority 
