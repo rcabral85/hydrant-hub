@@ -1,4 +1,5 @@
 // HydrantHub - Add New Hydrant Component
+// Updated to use HYD-### format and minimal required fields
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, TextField, Button,
@@ -59,6 +60,9 @@ const MapPicker = ({ lat, lng, onLocationSelect, open, onClose }) => {
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Select Hydrant Location</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Click on the map to select a location. The address will be automatically filled.
+        </Typography>
         <Box sx={{ height: 400, mb: 2 }}>
           {open && (
             <MapContainer
@@ -119,7 +123,7 @@ export default function HydrantAdd() {
     hydrant_number: '',
     manufacturer: '',
     model: '',
-    installation_date: dayjs(),
+    installation_date: null,
     latitude: 43.5182, // Default to Milton, ON
     longitude: -79.8774,
     location_address: '',
@@ -132,6 +136,7 @@ export default function HydrantAdd() {
   });
 
   useEffect(() => {
+    // Get user's current location if available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -167,29 +172,22 @@ export default function HydrantAdd() {
 
   const validateForm = () => {
     const newErrors = {};
+    
+    // Only 3 fields are mandatory: hydrant_number, manufacturer, and location_address
     if (!hydrantData.hydrant_number.trim()) {
       newErrors.hydrant_number = 'Hydrant number is required';
-    } else if (!/^[A-Z]{2,4}-\d{3,4}$/.test(hydrantData.hydrant_number.trim())) {
-      newErrors.hydrant_number = 'Format: ABC-001 or ABCD-0001';
+    } else if (!/^HYD-\d{3,4}$/.test(hydrantData.hydrant_number.trim())) {
+      newErrors.hydrant_number = 'Format must be HYD-001 or HYD-0001';
     }
+    
     if (!hydrantData.manufacturer) {
       newErrors.manufacturer = 'Manufacturer is required';
     }
+    
     if (!hydrantData.location_address.trim()) {
       newErrors.location_address = 'Address is required';
     }
-    if (!hydrantData.latitude || hydrantData.latitude < 40 || hydrantData.latitude > 50) {
-      newErrors.latitude = 'Invalid latitude for Ontario';
-    }
-    if (!hydrantData.longitude || hydrantData.longitude < -95 || hydrantData.longitude > -70) {
-      newErrors.longitude = 'Invalid longitude for Ontario';
-    }
-    if (hydrantData.watermain_size_mm < 100 || hydrantData.watermain_size_mm > 600) {
-      newErrors.watermain_size_mm = 'Size must be 100-600mm';
-    }
-    if (hydrantData.static_pressure_psi && (hydrantData.static_pressure_psi < 20 || hydrantData.static_pressure_psi > 150)) {
-      newErrors.static_pressure_psi = 'Pressure should be 20-150 PSI';
-    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -200,12 +198,24 @@ export default function HydrantAdd() {
     setSubmitError('');
     try {
       const submitData = {
-        ...hydrantData,
-        installation_date: hydrantData.installation_date.format('YYYY-MM-DD'),
-        static_pressure_psi: hydrantData.static_pressure_psi ? parseFloat(hydrantData.static_pressure_psi) : null,
+        hydrant_number: hydrantData.hydrant_number,
+        manufacturer: hydrantData.manufacturer,
+        location_address: hydrantData.location_address,
+        latitude: hydrantData.latitude,
+        longitude: hydrantData.longitude,
+        // Optional fields - only include if provided
+        ...(hydrantData.model && { model: hydrantData.model }),
+        ...(hydrantData.installation_date && { installation_date: hydrantData.installation_date.format('YYYY-MM-DD') }),
+        ...(hydrantData.location_description && { location_description: hydrantData.location_description }),
+        ...(hydrantData.watermain_size_mm && { watermain_size_mm: parseInt(hydrantData.watermain_size_mm) }),
+        ...(hydrantData.static_pressure_psi && { static_pressure_psi: parseFloat(hydrantData.static_pressure_psi) }),
+        ...(hydrantData.operational_status && { operational_status: hydrantData.operational_status }),
+        ...(hydrantData.nfpa_classification && { nfpa_classification: hydrantData.nfpa_classification }),
+        ...(hydrantData.inspector_notes && { inspector_notes: hydrantData.inspector_notes }),
         created_by: 'current_user',
         updated_by: 'current_user'
       };
+      
       const response = await api.post('/hydrants', submitData);
       if (response.data.success) {
         navigate('/map', {
@@ -256,11 +266,32 @@ export default function HydrantAdd() {
     reverseGeocode(lat, lng);
   };
 
-  const generateHydrantNumber = () => {
-    const prefix = 'MLT';
-    const sequence = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    const suggested = `${prefix}-${sequence}`;
-    setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
+  // Generate hydrant number in HYD-### format
+  const generateHydrantNumber = async () => {
+    try {
+      // Fetch existing hydrants to get the highest number
+      const response = await api.get('/hydrants?limit=1000');
+      const hydrants = response.data.hydrants || [];
+      
+      // Filter for HYD-### format and extract numbers
+      const hydNumbers = hydrants
+        .map(h => h.hydrant_number)
+        .filter(num => /^HYD-\d+$/.test(num))
+        .map(num => parseInt(num.replace('HYD-', '')))
+        .filter(num => !isNaN(num));
+      
+      // Get the next number
+      const nextNumber = hydNumbers.length > 0 ? Math.max(...hydNumbers) + 1 : 1;
+      const suggested = `HYD-${String(nextNumber).padStart(3, '0')}`;
+      
+      setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
+    } catch (error) {
+      console.error('Failed to generate hydrant number:', error);
+      // Fallback to random number if API call fails
+      const randomNum = Math.floor(Math.random() * 999) + 1;
+      const suggested = `HYD-${String(randomNum).padStart(3, '0')}`;
+      setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
+    }
   };
 
   return (
@@ -274,6 +305,12 @@ export default function HydrantAdd() {
             <Typography variant="body2" color="text.secondary">
               Register a new fire hydrant in the system with location and specifications
             </Typography>
+            <Chip 
+              label="Only Hydrant Number, Manufacturer, and Address are required" 
+              color="info" 
+              size="small" 
+              sx={{ mt: 1 }}
+            />
           </div>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<Cancel />} onClick={() => navigate('/map')}>Cancel</Button>
@@ -289,7 +326,9 @@ export default function HydrantAdd() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Business sx={{ mr: 1 }} />Identification</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Business sx={{ mr: 1 }} />Identification *
+              </Typography>
               <Stack spacing={3}>
                 <Stack direction="row" spacing={1}>
                   <TextField
@@ -297,13 +336,14 @@ export default function HydrantAdd() {
                     value={hydrantData.hydrant_number}
                     onChange={(e) => updateField('hydrant_number', e.target.value.toUpperCase())}
                     error={!!errors.hydrant_number}
-                    helperText={errors.hydrant_number || 'Format: ABC-001 or ABCD-0001'}
-                    placeholder="MLT-001"
+                    helperText={errors.hydrant_number || 'Format: HYD-001, HYD-002, etc.'}
+                    placeholder="HYD-001"
                     sx={{ flex: 1 }}
+                    required
                   />
                   <Button variant="outlined" onClick={generateHydrantNumber} sx={{ minWidth: 100 }}>Generate</Button>
                 </Stack>
-                <FormControl fullWidth error={!!errors.manufacturer}>
+                <FormControl fullWidth error={!!errors.manufacturer} required>
                   <InputLabel>Manufacturer *</InputLabel>
                   <Select
                     value={hydrantData.manufacturer}
@@ -327,14 +367,14 @@ export default function HydrantAdd() {
                     value={hydrantData.model}
                     onChange={(e, newValue) => updateField('model', newValue || '')}
                     renderInput={(params) => (
-                      <TextField {...params} label="Model" placeholder="Select or type model" />
+                      <TextField {...params} label="Model (Optional)" placeholder="Select or type model" />
                     )}
                     freeSolo
                   />
                 )}
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
-                    label="Installation Date"
+                    label="Installation Date (Optional)"
                     value={hydrantData.installation_date}
                     onChange={(newValue) => updateField('installation_date', newValue)}
                     maxDate={dayjs()}
@@ -349,7 +389,9 @@ export default function HydrantAdd() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><LocationOn sx={{ mr: 1 }} />Location</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <LocationOn sx={{ mr: 1 }} />Location *
+              </Typography>
               <Stack spacing={3}>
                 <TextField
                   label="Street Address *"
@@ -360,6 +402,7 @@ export default function HydrantAdd() {
                   placeholder="123 Main Street, Milton, ON"
                   fullWidth
                   multiline
+                  required
                   InputProps={{
                     endAdornment: loadingAddress && (
                       <InputAdornment position="end">
@@ -369,7 +412,7 @@ export default function HydrantAdd() {
                   }}
                 />
                 <TextField
-                  label="Location Description"
+                  label="Location Description (Optional)"
                   value={hydrantData.location_description}
                   onChange={(e) => updateField('location_description', e.target.value)}
                   placeholder="Northwest corner, near fire station entrance"
@@ -380,13 +423,11 @@ export default function HydrantAdd() {
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <TextField
-                      label="Latitude *"
+                      label="Latitude"
                       type="number"
                       step="0.000001"
                       value={hydrantData.latitude}
                       onChange={(e) => updateField('latitude', parseFloat(e.target.value))}
-                      error={!!errors.latitude}
-                      helperText={errors.latitude}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
@@ -399,13 +440,11 @@ export default function HydrantAdd() {
                   </Grid>
                   <Grid item xs={6}>
                     <TextField
-                      label="Longitude *"
+                      label="Longitude"
                       type="number"
                       step="0.000001"
                       value={hydrantData.longitude}
                       onChange={(e) => updateField('longitude', parseFloat(e.target.value))}
-                      error={!!errors.longitude}
-                      helperText={errors.longitude}
                       fullWidth
                     />
                   </Grid>
@@ -416,7 +455,7 @@ export default function HydrantAdd() {
                   onClick={() => setShowMapPicker(true)}
                   fullWidth
                 >
-                  Pick Location on Map
+                  Pick Location on Map (Auto-fills Address)
                 </Button>
                 <Chip
                   label={`${hydrantData.latitude.toFixed(6)}, ${hydrantData.longitude.toFixed(6)}`}
@@ -428,19 +467,20 @@ export default function HydrantAdd() {
             </CardContent>
           </Card>
         </Grid>
-        {/* Technical Specifications */}
+        {/* Technical Specifications (All Optional) */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Build sx={{ mr: 1 }} />Specifications</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Build sx={{ mr: 1 }} />Specifications (Optional)
+              </Typography>
               <Stack spacing={3}>
                 <TextField
-                  label="Watermain Size (mm) *"
+                  label="Watermain Size (mm)"
                   type="number"
                   value={hydrantData.watermain_size_mm}
                   onChange={(e) => updateField('watermain_size_mm', parseInt(e.target.value))}
-                  error={!!errors.watermain_size_mm}
-                  helperText={errors.watermain_size_mm || 'Common sizes: 150, 200, 250, 300mm'}
+                  helperText="Common sizes: 150, 200, 250, 300mm"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -469,8 +509,7 @@ export default function HydrantAdd() {
                   step="0.1"
                   value={hydrantData.static_pressure_psi}
                   onChange={(e) => updateField('static_pressure_psi', e.target.value)}
-                  error={!!errors.static_pressure_psi}
-                  helperText={errors.static_pressure_psi || 'Optional - if known from installation'}
+                  helperText="Optional - if known from installation"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -499,11 +538,11 @@ export default function HydrantAdd() {
             </CardContent>
           </Card>
         </Grid>
-        {/* Notes Section */}
+        {/* Notes Section (Optional) */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Additional Information</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Additional Information (Optional)</Typography>
               <TextField
                 label="Inspector Notes"
                 value={hydrantData.inspector_notes}
@@ -516,9 +555,9 @@ export default function HydrantAdd() {
               <Alert severity="info" sx={{ mt: 2 }}>
                 <Typography variant="body2">
                   <strong>Next Steps:</strong> After saving, you can:
-                  • Record initial flow test (NFPA 291)
-                  • Schedule first maintenance inspection
-                  • Add photos and documentation
+                  <br />• Record initial flow test (NFPA 291)
+                  <br />• Schedule first maintenance inspection
+                  <br />• Add photos and documentation
                 </Typography>
               </Alert>
             </CardContent>
