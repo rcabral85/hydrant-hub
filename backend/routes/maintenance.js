@@ -51,7 +51,7 @@ router.post('/inspections',
   upload.array('photos', 10),
   [
     body('hydrant_id').notEmpty().withMessage('Hydrant ID is required'),
-    body('inspection_type_id').isInt().withMessage('Valid inspection type required'),
+    body('inspection_type').notEmpty().withMessage('Valid inspection type required'),
     body('inspector_name').notEmpty().withMessage('Inspector name is required'),
     body('inspection_date').isISO8601().withMessage('Valid inspection date required')
   ],
@@ -72,7 +72,7 @@ router.post('/inspections',
 
         const {
           hydrant_id,
-          inspection_type_id,
+          inspection_type,
           inspector_name,
           inspector_license,
           inspection_date,
@@ -88,15 +88,18 @@ router.post('/inspections',
         // Create main inspection record
         const inspectionResult = await client.query(`
           INSERT INTO maintenance_inspections (
-            hydrant_id, inspection_type_id, inspector_name, inspector_license,
-            inspection_date, scheduled_date, overall_status, overall_notes,
-            compliance_status, photos, created_by, updated_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+            hydrant_id, inspection_type, inspector_name, inspector_license,
+            inspection_date, overall_status, inspector_notes, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *
         `, [
-          hydrant_id, inspection_type_id, inspector_name, inspector_license,
-          inspection_date, scheduled_date, overall_status, overall_notes,
-          compliance_status, JSON.stringify(photoUrls), req.user.id
+          hydrant_id, 
+          inspection_type || 'Annual Inspection', 
+          inspector_name, 
+          inspector_license,
+          inspection_date, 
+          overall_status || 'COMPLETED', 
+          overall_notes
         ]);
 
         const inspection = inspectionResult.rows[0];
@@ -105,16 +108,15 @@ router.post('/inspections',
         await client.query(`
           INSERT INTO maintenance_history (
             hydrant_id, action_type, action_description, action_date,
-            performed_by, license_number, department, notes, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            performed_by, license_number, notes, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           hydrant_id,
           'INSPECTION',
-          `${inspection_types[inspection_type_id]} completed`,
+          `${inspection_type || 'Annual Inspection'} completed`,
           inspection_date,
           inspector_name,
           inspector_license,
-          req.user.department || 'Water Operations',
           overall_notes,
           req.user.id
         ]);
@@ -140,6 +142,7 @@ router.post('/inspections',
     }
   }
 );
+
 
 // Get maintenance inspections for a hydrant
 router.get('/inspections/hydrant/:hydrantId',
