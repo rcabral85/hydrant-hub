@@ -125,45 +125,57 @@ const MobileInspection = () => {
   };
 
   const submitInspection = async () => {
-    try {
-      const formData = new FormData();
-      
-      // Add all inspection data
-      Object.keys(inspectionData).forEach(key => {
+  setLoading(true);
+  
+  try {
+    const formData = new FormData();
+    
+    // Add all inspection data
+    Object.keys(inspectionData).forEach(key => {
+      if (inspectionData[key] !== null && inspectionData[key] !== '') {
         formData.append(key, inspectionData[key]);
-      });
-      
-      // Add GPS data
-      if (gpsLocation) {
-        formData.append('inspector_gps_lat', gpsLocation.lat);
-        formData.append('inspector_gps_lng', gpsLocation.lng);
-        formData.append('gps_accuracy', gpsLocation.accuracy);
       }
-      
-      // Add photos
-      photos.forEach((photo, index) => {
-        formData.append('inspection_photos', photo);
-      });
-      
-      formData.append('hydrant_id', hydrantId);
-      formData.append('inspection_type_id', 1); // Annual inspection
-      
-      await API.post('/maintenance/inspections/mobile', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      alert('Inspection submitted successfully!');
-      
-      // Reset form for next inspection
-      setCurrentStep(1);
-      setPhotos([]);
-      
-    } catch (error) {
-      console.error('Error submitting inspection:', error);
-      alert('Failed to submit inspection. Data saved locally for when online.');
-      // TODO: Implement offline storage
+    });
+    
+    // Add GPS data
+    if (gpsLocation) {
+      formData.append('inspector_gps_lat', gpsLocation.lat);
+      formData.append('inspector_gps_lng', gpsLocation.lng);
     }
-  };
+    
+    // Add photos
+    photos.forEach(photo => {
+      formData.append('inspection_photos', photo);
+    });
+    
+    formData.append('hydrant_id', hydrantId);
+    formData.append('inspection_type_id', 1);
+    
+    console.log('Submitting inspection...', Object.fromEntries(formData));
+    
+    // ACTUALLY CALL THE API
+    const response = await API.post('/maintenance/inspections', formData, {
+
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    if (response.status === 200 || response.status === 201) {
+      alert('Inspection submitted successfully!');
+      navigate('/maintenance');
+    }
+    
+  } catch (error) {
+    console.error('Error submitting inspection:', error);
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         'Failed to submit inspection. Please try again.';
+    alert(`ERROR: ${errorMessage}`);
+  } finally {
+    setLoading(false);
+    setShowSummary(false);
+  }
+};
+
 
   const updateField = (field, value) => {
     setInspectionData(prev => ({ ...prev, [field]: value }));

@@ -129,33 +129,56 @@ export default function MobileInspectionMUI() {
   };
 
   const submitInspection = async () => {
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      Object.keys(inspectionData).forEach(key => {
-        if (inspectionData[key] !== null && inspectionData[key] !== '') {
-          formData.append(key, inspectionData[key]);
-        }
-      });
-      if (gpsLocation) {
-        formData.append('inspector_gps_lat', gpsLocation.lat);
-        formData.append('inspector_gps_lng', gpsLocation.lng);
+  setLoading(true);
+  
+  try {
+    const formData = new FormData();
+    
+    // Add all inspection data
+    Object.keys(inspectionData).forEach(key => {
+      if (inspectionData[key] !== null && inspectionData[key] !== '') {
+        formData.append(key, inspectionData[key]);
       }
-      photos.forEach(photo => { formData.append('inspection_photos', photo); });
-      formData.append('hydrant_id', hydrantId);
-      formData.append('inspection_type_id', 1);
-      console.log('Submitting inspection:', Object.fromEntries(formData));
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    });
+    
+    // Add GPS data
+    if (gpsLocation) {
+      formData.append('inspector_gps_lat', gpsLocation.lat);
+      formData.append('inspector_gps_lng', gpsLocation.lng);
+    }
+    
+    // Add photos
+    photos.forEach(photo => {
+      formData.append('inspection_photos', photo);
+    });
+    
+    formData.append('hydrant_id', hydrantId);
+    formData.append('inspection_type_id', 1);
+    
+    console.log('Submitting inspection...', Object.fromEntries(formData));
+    
+    // ACTUALLY CALL THE API
+    const response = await api.post('/maintenance/inspections', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    if (response.status === 200 || response.status === 201) {
       alert('Inspection submitted successfully!');
       navigate('/maintenance');
-    } catch (error) {
-      console.error('Error submitting inspection:', error);
-      alert('Failed to submit inspection. Please try again.');
-    } finally {
-      setLoading(false);
-      setShowSummary(false);
     }
-  };
+    
+  } catch (error) {
+    console.error('Error submitting inspection:', error);
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         'Failed to submit inspection. Please try again.';
+    alert(`ERROR: ${errorMessage}`);
+  } finally {
+    setLoading(false);
+    setShowSummary(false);
+  }
+};
+
 
   const getConditionColor = (condition) => ({ EXCELLENT:'success', GOOD:'success', FAIR:'warning', POOR:'error', CRITICAL:'error' }[condition] || 'default');
 
