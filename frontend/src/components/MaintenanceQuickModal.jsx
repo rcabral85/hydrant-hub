@@ -93,72 +93,53 @@ export default function MaintenanceQuickModal({ open, onClose, hydrant, onSucces
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+  if (!validateForm()) return;
+  setLoading(true);
+  setErrors({});
 
-    setLoading(true);
-    try {
-      // Create maintenance inspection
-      const formData = new FormData();
-      
-      // Add inspection data
-      Object.keys(inspectionData).forEach(key => {
-        if (inspectionData[key] !== null && inspectionData[key] !== '') {
-          formData.append(key, inspectionData[key]);
-        }
-      });
-      
-      // Add hydrant ID
-      formData.append('hydrant_id', hydrant.id);
-      formData.append('inspection_type_id', 1); // Quick inspection
-      
-      // Add photos
-      photos.forEach(photo => {
-        formData.append('inspection_photos', photo);
-      });
-      
-      // Mock API call for now - in production this would hit /api/maintenance/inspections
-      console.log('Submitting maintenance inspection:', Object.fromEntries(formData));
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Determine compliance status
-      const complianceStatus = inspectionData.immediate_action_required ? 'NON_COMPLIANT' :
-                               ['POOR', 'CRITICAL'].includes(inspectionData.overall_condition) ? 'CONDITIONAL' :
-                               'COMPLIANT';
-      
-      // Create result object
-      const inspectionResult = {
-        id: `INSP-${Date.now()}`,
-        hydrant_id: hydrant.id,
-        inspection_date: inspectionData.inspection_date,
-        overall_status: ['EXCELLENT', 'GOOD'].includes(inspectionData.overall_condition) ? 'PASS' :
-                        ['FAIR'].includes(inspectionData.overall_condition) ? 'CONDITIONAL' : 'FAIL',
-        compliance_status: complianceStatus,
-        inspector_name: inspectionData.inspector_name,
-        photos_count: photos.length,
-        work_order_generated: inspectionData.repair_needed && ['HIGH', 'CRITICAL'].includes(inspectionData.priority_level)
-      };
-      
-      onSuccess && onSuccess(inspectionResult);
-      onClose();
-      
-      // Show success message based on results
-      if (inspectionResult.work_order_generated) {
-        alert(`Maintenance inspection completed!\n\n✅ Inspection: ${inspectionResult.overall_status}\n⚠️ Work order auto-generated due to ${inspectionData.priority_level} priority issues.`);
-      } else {
-        alert(`Maintenance inspection completed successfully!\n\n✅ Status: ${inspectionResult.overall_status}\n📋 Compliance: ${complianceStatus}`);
+  try {
+    const formData = new FormData();
+
+    // Append all inspection data
+    Object.entries(inspectionData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, value);
       }
-      
-    } catch (error) {
-      console.error('Error submitting maintenance inspection:', error);
-      setErrors({ submit: 'Failed to submit inspection. Please try again.' });
-    } finally {
-      setLoading(false);
+    });
+    formData.append('hydrant_id', hydrant.id);
+
+    // Attach photos
+    photos.forEach(photo => {
+      formData.append('inspection_photos', photo);
+    });
+
+    // Single API call - backend handles both inspection AND work order
+    const response = await api.post('/maintenance/inspections', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    if (response.data.success) {
+      onSuccess && onSuccess(response.data.inspection);
+      onClose();
+
+      // Show appropriate message
+      if (response.data.workOrder) {
+        alert(
+          `✅ Inspection saved!\n🔧 Work Order #${response.data.workOrder.id} created\nPriority: ${response.data.workOrder.priority}`
+        );
+      } else {
+        alert('✅ Maintenance inspection saved successfully!');
+      }
     }
-  };
+  } catch (error) {
+    setErrors({ submit: 'Failed to submit inspection. Please try again.' });
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   const getConditionColor = (condition) => {
     const colors = {

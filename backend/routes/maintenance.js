@@ -1254,5 +1254,83 @@ router.get('/checklist/:inspectionTypeId',
   }
 );
 */
+// POST /api/maintenance/inspections - Create new maintenance inspection
+router.post('/inspections', async (req, res) => {
+  try {
+    const {
+      hydrant_id,
+      inspection_date,
+      inspector_name,
+      inspector_license,
+      paint_condition,
+      body_condition,
+      cap_condition,
+      chains_present,
+      clearance_adequate,
+      valve_operation,
+      static_pressure_psi,
+      valve_leak_detected,
+      immediate_action_required,
+      safety_hazard_description,
+      overall_condition,
+      repair_needed,
+      priority_level,
+      inspector_notes
+    } = req.body;
+
+    // Insert inspection into database
+    const { db } = require('../config/database');
+    const result = await db.query(
+      `INSERT INTO maintenance_inspections (
+        hydrant_id, inspection_date, inspector_name, inspector_license,
+        paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
+        valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
+        safety_hazard_description, overall_condition, repair_needed, priority_level, inspector_notes, created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+      RETURNING *;`,
+      [
+        hydrant_id, inspection_date, inspector_name, inspector_license,
+        paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
+        valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
+        safety_hazard_description, overall_condition, repair_needed, priority_level, inspector_notes
+      ]
+    );
+    const inspection = result.rows[0];
+
+    // Create work order if needed
+    let workOrder = null;
+    if (repair_needed || immediate_action_required) {
+      const woResult = await db.query(
+        `INSERT INTO work_orders (
+          hydrant_id, inspection_id, priority, status, description, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        RETURNING *;`,
+        [
+          hydrant_id,
+          inspection.id,
+          priority_level || 'MEDIUM',
+          'OPEN',
+          `Auto-generated from inspection. ${inspector_notes || ''}`
+        ]
+      );
+      workOrder = woResult.rows[0];
+    }
+
+    res.status(201).json({
+      success: true,
+      inspection,
+      workOrder
+    });
+  } catch (err) {
+    console.error('Error saving inspection:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to save inspection.',
+      details: err.message 
+    });
+  }
+});
 
 module.exports = router;
