@@ -45,7 +45,7 @@ const upload = multer({
 // INSPECTION MANAGEMENT
 // =============================================
 
-// Create new maintenance inspection
+// POST /api/maintenance/inspections - Create new maintenance inspection
 router.post('/inspections', 
   authMiddleware,
   upload.array('photos', 10),
@@ -74,25 +74,59 @@ router.post('/inspections',
           hydrant_id,
           inspection_type,
           inspector_name,
+          inspector_license,
           inspection_date,
           overall_status,
-          overall_notes
+          overall_notes,
+          // Quick maintenance fields
+          paint_condition,
+          body_condition,
+          cap_condition,
+          chains_present,
+          clearance_adequate,
+          valve_operation,
+          static_pressure_psi,
+          valve_leak_detected,
+          immediate_action_required,
+          safety_hazard_description,
+          overall_condition,
+          repair_needed,
+          priority_level,
+          inspector_notes
         } = req.body;
 
-        // Create main inspection record
+        // Create main inspection record with ALL fields
         const inspectionResult = await client.query(`
           INSERT INTO maintenance_inspections (
-            hydrant_id, inspection_type, inspector_name,
-            inspection_date, overall_status, inspector_notes, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            hydrant_id, inspection_type, inspector_name, inspector_license,
+            inspection_date, overall_status, inspector_notes,
+            paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
+            valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
+            safety_hazard_description, overall_condition, repair_needed, priority_level,
+            created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *
         `, [
           hydrant_id, 
-          inspection_type || 'Annual Inspection', 
-          inspector_name, 
+          inspection_type || 'QUICK_MAINTENANCE', 
+          inspector_name,
+          inspector_license,
           inspection_date, 
           overall_status || 'COMPLETED', 
-          overall_notes
+          inspector_notes || overall_notes,
+          paint_condition,
+          body_condition,
+          cap_condition,
+          chains_present,
+          clearance_adequate,
+          valve_operation,
+          static_pressure_psi,
+          valve_leak_detected,
+          immediate_action_required,
+          safety_hazard_description,
+          overall_condition,
+          repair_needed,
+          priority_level
         ]);
 
         const inspection = inspectionResult.rows[0];
@@ -106,19 +140,40 @@ router.post('/inspections',
         `, [
           hydrant_id,
           'INSPECTION',
-          `${inspection_type || 'Annual Inspection'} completed`,
+          `${inspection_type || 'Quick Maintenance'} completed`,
           inspection_date,
           inspector_name,
-          overall_notes,
+          inspector_notes || overall_notes,
           req.user.id
         ]);
+
+        // Create work order if needed (for quick maintenance)
+        let workOrder = null;
+        if (repair_needed || immediate_action_required) {
+          const woResult = await client.query(
+            `INSERT INTO work_orders (
+              hydrant_id, inspection_id, priority, status, description, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            RETURNING *;`,
+            [
+              hydrant_id,
+              inspection.id,
+              priority_level || 'MEDIUM',
+              'OPEN',
+              `Auto-generated from ${inspection_type}. ${inspector_notes || overall_notes || ''}`
+            ]
+          );
+          workOrder = woResult.rows[0];
+        }
 
         await client.query('COMMIT');
         
         res.status(201).json({
           success: true,
           message: 'Inspection created successfully',
-          inspection: inspection
+          inspection: inspection,
+          workOrder: workOrder
         });
 
       } catch (error) {
@@ -130,10 +185,15 @@ router.post('/inspections',
 
     } catch (error) {
       console.error('Error creating inspection:', error);
-      res.status(500).json({ error: 'Failed to create inspection' });
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to create inspection',
+        details: error.message 
+      });
     }
   }
 );
+
 
 
 
@@ -1254,83 +1314,6 @@ router.get('/checklist/:inspectionTypeId',
   }
 );
 */
-// POST /api/maintenance/inspections - Create new maintenance inspection
-router.post('/inspections', async (req, res) => {
-  try {
-    const {
-      hydrant_id,
-      inspection_date,
-      inspector_name,
-      inspector_license,
-      paint_condition,
-      body_condition,
-      cap_condition,
-      chains_present,
-      clearance_adequate,
-      valve_operation,
-      static_pressure_psi,
-      valve_leak_detected,
-      immediate_action_required,
-      safety_hazard_description,
-      overall_condition,
-      repair_needed,
-      priority_level,
-      inspector_notes
-    } = req.body;
 
-    // Insert inspection into database
-    const { db } = require('../config/database');
-    const result = await db.query(
-      `INSERT INTO maintenance_inspections (
-        hydrant_id, inspection_date, inspector_name, inspector_license,
-        paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
-        valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
-        safety_hazard_description, overall_condition, repair_needed, priority_level, inspector_notes, created_at
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
-      RETURNING *;`,
-      [
-        hydrant_id, inspection_date, inspector_name, inspector_license,
-        paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
-        valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
-        safety_hazard_description, overall_condition, repair_needed, priority_level, inspector_notes
-      ]
-    );
-    const inspection = result.rows[0];
-
-    // Create work order if needed
-    let workOrder = null;
-    if (repair_needed || immediate_action_required) {
-      const woResult = await db.query(
-        `INSERT INTO work_orders (
-          hydrant_id, inspection_id, priority, status, description, created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING *;`,
-        [
-          hydrant_id,
-          inspection.id,
-          priority_level || 'MEDIUM',
-          'OPEN',
-          `Auto-generated from inspection. ${inspector_notes || ''}`
-        ]
-      );
-      workOrder = woResult.rows[0];
-    }
-
-    res.status(201).json({
-      success: true,
-      inspection,
-      workOrder
-    });
-  } catch (err) {
-    console.error('Error saving inspection:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to save inspection.',
-      details: err.message 
-    });
-  }
-});
 
 module.exports = router;
