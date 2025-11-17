@@ -24,7 +24,7 @@ export default function MaintenanceQuickModal({ open, onClose, hydrant, onSucces
   const [inspectionData, setInspectionData] = useState({
     inspection_date: dayjs().format('YYYY-MM-DD'),
     inspector_name: 'Rich Cabral',
-    inspector_license: 'WDO-ON-2019-1234',
+    // inspector_license: 'WDO-ON-2019-1234',
     
     // Visual Assessment (Quick)
     paint_condition: '',

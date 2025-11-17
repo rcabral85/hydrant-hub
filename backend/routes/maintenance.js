@@ -45,7 +45,6 @@ const upload = multer({
 // INSPECTION MANAGEMENT
 // =============================================
 
-// POST /api/maintenance/inspections - Create new maintenance inspection
 router.post('/inspections', 
   authMiddleware,
   upload.array('photos', 10),
@@ -74,7 +73,7 @@ router.post('/inspections',
           hydrant_id,
           inspection_type,
           inspector_name,
-          inspector_license,
+          // inspector_license,  // ❌ REMOVE THIS - column doesn't exist
           inspection_date,
           overall_status,
           overall_notes,
@@ -95,22 +94,21 @@ router.post('/inspections',
           inspector_notes
         } = req.body;
 
-        // Create main inspection record with ALL fields
+        // Create main inspection record - REMOVE inspector_license
         const inspectionResult = await client.query(`
           INSERT INTO maintenance_inspections (
-            hydrant_id, inspection_type, inspector_name, inspector_license,
+            hydrant_id, inspection_type, inspector_name,
             inspection_date, overall_status, inspector_notes,
             paint_condition, body_condition, cap_condition, chains_present, clearance_adequate,
             valve_operation, static_pressure_psi, valve_leak_detected, immediate_action_required,
             safety_hazard_description, overall_condition, repair_needed, priority_level,
             created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *
         `, [
           hydrant_id, 
           inspection_type || 'QUICK_MAINTENANCE', 
           inspector_name,
-          inspector_license,
           inspection_date, 
           overall_status || 'COMPLETED', 
           inspector_notes || overall_notes,
@@ -147,7 +145,7 @@ router.post('/inspections',
           req.user.id
         ]);
 
-        // Create work order if needed (for quick maintenance)
+        // Create work order if needed
         let workOrder = null;
         if (repair_needed || immediate_action_required) {
           const woResult = await client.query(
@@ -193,6 +191,7 @@ router.post('/inspections',
     }
   }
 );
+
 
 
 
