@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, LayersControl, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, LayersControl, CircleMarker, Popup, useMapEvents, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   Box, Paper, Typography, Chip, Stack, Alert, Drawer, Card, CardContent,
@@ -7,7 +7,7 @@ import {
   TableContainer, TableHead, TableRow, Tooltip, useMediaQuery, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import {
-  Add, Close, Edit, Timeline, Build, Refresh, Layers
+  Add, Close, Edit, Timeline, Build, Refresh, Layers, MyLocation
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -93,6 +93,21 @@ function MapClickHandler({ addMode, onLocationSelect }) {
   return null;
 }
 
+// Component to handle map centering on user location
+function LocationCenter({ position, shouldCenter }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (position && shouldCenter) {
+      map.flyTo([position.lat, position.lng], 16, {
+        duration: 1.5
+      });
+    }
+  }, [position, shouldCenter, map]);
+  
+  return null;
+}
+
 function HydrantInfoPopup({ feature, onFlowTest, onMaintenance, onEdit }) {
   const props = feature?.properties || {};
   const cls = props.nfpa_class || props.nfpa_classification || 'C';
@@ -161,6 +176,12 @@ export default function HydrantMapEnhanced() {
   const [flowTests, setFlowTests] = useState([]);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
   const [mapView, setMapView] = useState('nfpa'); // 'nfpa' or 'work'
+  
+  // Geolocation state
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [shouldCenterOnUser, setShouldCenterOnUser] = useState(false);
 
   useEffect(() => {
     loadMapData();
@@ -222,6 +243,54 @@ export default function HydrantMapEnhanced() {
     loadHydrantDetails(feature.properties.id);
   };
 
+  // Get user's current location
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setUserLocation({
+          lat: latitude,
+          lng: longitude,
+          accuracy: accuracy
+        });
+        setShouldCenterOnUser(true);
+        setLocating(false);
+        
+        // Reset centering flag after animation
+        setTimeout(() => setShouldCenterOnUser(false), 2000);
+      },
+      (error) => {
+        setLocating(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Location permission denied. Please enable location access in your browser.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('Location information unavailable.');
+            break;
+          case error.TIMEOUT:
+            setLocationError('Location request timed out.');
+            break;
+          default:
+            setLocationError('An unknown error occurred while getting location.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
   const features = useMemo(() => geo?.features || [], [geo]);
   const markerRadius = isMobile ? 8 : 10;
 
@@ -252,8 +321,20 @@ export default function HydrantMapEnhanced() {
         </Alert>
       )}
 
+      {locationError && (
+        <Alert 
+          severity="warning" 
+          onClose={() => setLocationError(null)}
+          sx={{ position: 'absolute', top: error ? 140 : 80, left: 16, zIndex: 1000, maxWidth: 400 }}
+        >
+          {locationError}
+        </Alert>
+      )}
+
       <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%' }}>
         <MapClickHandler addMode={addMode} onLocationSelect={(lat,lng)=>navigate('/hydrants/new',{state:{latitude:lat,longitude:lng,fromMap:true}})} />
+        <LocationCenter position={userLocation} shouldCenter={shouldCenterOnUser} />
+        
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
             <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -262,6 +343,44 @@ export default function HydrantMapEnhanced() {
             <TileLayer attribution='&copy; Google Maps' url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" />
           </LayersControl.BaseLayer>
         </LayersControl>
+
+        {/* User location marker and accuracy circle */}
+        {userLocation && (
+          <>
+            <Circle
+              center={[userLocation.lat, userLocation.lng]}
+              radius={userLocation.accuracy}
+              pathOptions={{
+                color: '#4285F4',
+                fillColor: '#4285F4',
+                fillOpacity: 0.1,
+                weight: 1
+              }}
+            />
+            <CircleMarker
+              center={[userLocation.lat, userLocation.lng]}
+              radius={8}
+              pathOptions={{
+                color: '#FFFFFF',
+                fillColor: '#4285F4',
+                fillOpacity: 1,
+                weight: 3
+              }}
+            >
+              <Popup>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Your Location</Typography>
+                  <Typography variant="caption" display="block">
+                    Accuracy: ±{Math.round(userLocation.accuracy)}m
+                  </Typography>
+                  <Typography variant="caption" display="block" sx={{ color: 'text.secondary', fontSize: 10 }}>
+                    Lat: {userLocation.lat.toFixed(6)}, Lng: {userLocation.lng.toFixed(6)}
+                  </Typography>
+                </Box>
+              </Popup>
+            </CircleMarker>
+          </>
+        )}
 
         {features.map((f) => {
           if (!f?.geometry?.coordinates) return null;
@@ -298,10 +417,25 @@ export default function HydrantMapEnhanced() {
 
       <Stack spacing={1} sx={{ position: 'absolute', bottom: isMobile ? 80 : 20, right: 20, zIndex: 1000 }}>
         <Tooltip title={addMode ? 'Click map to add hydrant' : 'Add new hydrant'}>
-          <Fab color={addMode ? 'secondary' : 'primary'} onClick={() => setAddMode(!addMode)} aria-label="add hydrant"><Add /></Fab>
+          <Fab color={addMode ? 'secondary' : 'primary'} onClick={() => setAddMode(!addMode)} aria-label="add hydrant">
+            <Add />
+          </Fab>
+        </Tooltip>
+        <Tooltip title={userLocation ? 'Update my location' : 'Find my location'}>
+          <Fab 
+            size="small" 
+            onClick={handleGetLocation} 
+            disabled={locating}
+            aria-label="my location"
+            color={userLocation ? 'info' : 'default'}
+          >
+            <MyLocation />
+          </Fab>
         </Tooltip>
         <Tooltip title="Refresh map data">
-          <Fab size="small" onClick={loadMapData} aria-label="refresh map"><Refresh /></Fab>
+          <Fab size="small" onClick={loadMapData} aria-label="refresh map">
+            <Refresh />
+          </Fab>
         </Tooltip>
       </Stack>
 
