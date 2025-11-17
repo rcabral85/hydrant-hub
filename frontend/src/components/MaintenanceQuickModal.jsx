@@ -100,20 +100,23 @@ export default function MaintenanceQuickModal({ open, onClose, hydrant, onSucces
   try {
     const formData = new FormData();
 
+    // 🔷 ADD THIS FIRST - inspection_type is required by validation
+    formData.append('inspection_type', 'QUICK_MAINTENANCE');
+    formData.append('hydrant_id', hydrant.id);
+
     // Append all inspection data
     Object.entries(inspectionData).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
+      if (value !== null && value !== undefined && value !== '') {
         formData.append(key, value);
       }
     });
-    formData.append('hydrant_id', hydrant.id);
 
     // Attach photos
     photos.forEach(photo => {
       formData.append('inspection_photos', photo);
     });
 
-    // Single API call - backend handles both inspection AND work order
+    // Single API call
     const response = await api.post('/maintenance/inspections', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
@@ -122,7 +125,6 @@ export default function MaintenanceQuickModal({ open, onClose, hydrant, onSucces
       onSuccess && onSuccess(response.data.inspection);
       onClose();
 
-      // Show appropriate message
       if (response.data.workOrder) {
         alert(
           `✅ Inspection saved!\n🔧 Work Order #${response.data.workOrder.id} created\nPriority: ${response.data.workOrder.priority}`
@@ -138,7 +140,6 @@ export default function MaintenanceQuickModal({ open, onClose, hydrant, onSucces
     setLoading(false);
   }
 };
-
 
 
   const getConditionColor = (condition) => {
