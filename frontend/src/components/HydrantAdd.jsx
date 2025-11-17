@@ -248,9 +248,27 @@ export default function HydrantAdd() {
     }
   };
 
-  const handleLocationSelect = async (lat, lng) => {
+    const handleLocationSelect = async (lat, lng) => {
     setHydrantData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-    await reverseGeocode(lat, lng); // Await to ensure autofill
+    await reverseGeocode(lat, lng);
   };
 
-  // ...The rest remains unchanged...
+  // Generate hydrant number in HYD-### format
+  const generateHydrantNumber = async () => {
+    // ... full function here ...
+  };
+
+  return (
+    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+      {/* All your JSX here */}
+      <MapPicker
+        lat={hydrantData.latitude}
+        lng={hydrantData.longitude}
+        onLocationSelect={handleLocationSelect}
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+      />
+    </Box>
+  );
+}
+
