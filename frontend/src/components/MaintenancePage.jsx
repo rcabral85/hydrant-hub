@@ -90,12 +90,13 @@ const complianceRes = { data: { schedule: [], total: 0 } };
   const getStatusColor = (status) => ({ 'PASS': 'success', 'FAIL': 'error', 'CONDITIONAL': 'warning', 'SCHEDULED': 'info', 'IN_PROGRESS': 'primary', 'COMPLETED': 'success', 'EXCELLENT': 'success' }[status] || 'default');
   const getProgressColor = (progress) => (progress === 100 ? 'success' : progress >= 60 ? 'primary' : progress >= 25 ? 'warning' : 'error');
 
-  const startInspection = (hydrant) => { navigate(`/maintenance/inspect/${hydrant.hydrant_number}`); };
+  const startInspection = (hydrant) => { navigate(`/maintenance/inspect/${hydrant.id}`); };
   const handleNewInspection = () => { setNewInspectionDialog(true); };
   const createNewInspection = () => {
-    if (selectedHydrant) {
-      const hydrant = hydrants.find(h => h.id === selectedHydrant);
-      if (hydrant) navigate(`/maintenance/inspect/${hydrant.hydrant_number}`);
+  if (selectedHydrant) {
+    const hydrant = hydrants.find(h => h.id === selectedHydrant);
+    if (hydrant) navigate(`/maintenance/inspect/${hydrant.id}`); // Changed from hydrant_number
+
       setNewInspectionDialog(false);
       setSelectedHydrant('');
     }
