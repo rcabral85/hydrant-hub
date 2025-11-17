@@ -153,7 +153,7 @@ export default function MobileInspectionMUI() {
     });
     
     formData.append('hydrant_id', hydrantId);
-    formData.append('inspection_type_id', 1);
+    formData.append('inspection_type', 'Annual Inspection');
     
     console.log('Submitting inspection...', Object.fromEntries(formData));
     
