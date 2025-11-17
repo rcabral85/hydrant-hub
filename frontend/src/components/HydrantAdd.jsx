@@ -1,10 +1,10 @@
-// HydrantHub - Add New Hydrant Component (geocoding removed)
+// HydrantHub - Add New Hydrant Component
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, TextField, Button,
   FormControl, InputLabel, Select, MenuItem, Alert, Paper,
   Stack, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Autocomplete, InputAdornment, IconButton
+  Autocomplete, InputAdornment, IconButton, CircularProgress
 } from '@mui/material';
 import {
   Save, Cancel, LocationOn, Map as MapIcon, MyLocation, Business,
@@ -14,39 +14,95 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
+
+// Fix Leaflet default icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const MapClickHandler = ({ onLocationSelect }) => {
+  useMapEvents({
+    click: (e) => {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
 
 const MapPicker = ({ lat, lng, onLocationSelect, open, onClose }) => {
   const [selectedLat, setSelectedLat] = useState(lat || 43.5182);
   const [selectedLng, setSelectedLng] = useState(lng || -79.8774);
+
+  useEffect(() => {
+    setSelectedLat(lat || 43.5182);
+    setSelectedLng(lng || -79.8774);
+  }, [lat, lng]);
+
+  const handleMapClick = (newLat, newLng) => {
+    setSelectedLat(newLat);
+    setSelectedLng(newLng);
+  };
+
   const handleConfirm = () => {
     onLocationSelect(selectedLat, selectedLng);
     onClose();
   };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Select Hydrant Location</DialogTitle>
       <DialogContent>
-        <Box sx={{ height: 400, bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-          <Typography variant="h6" color="text.secondary">
-            Interactive Map Picker
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-            (Click to select location)
-          </Typography>
+        <Box sx={{ height: 400, mb: 2 }}>
+          {open && (
+            <MapContainer
+              center={[selectedLat, selectedLng]}
+              zoom={15}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[selectedLat, selectedLng]} />
+              <MapClickHandler onLocationSelect={handleMapClick} />
+            </MapContainer>
+          )}
         </Box>
         <Grid container spacing={2}>
           <Grid item xs={6}>
-            <TextField label="Latitude" type="number" step="0.000001" value={selectedLat} onChange={(e) => setSelectedLat(parseFloat(e.target.value))} fullWidth />
+            <TextField
+              label="Latitude"
+              type="number"
+              step="0.000001"
+              value={selectedLat}
+              onChange={(e) => setSelectedLat(parseFloat(e.target.value))}
+              fullWidth
+            />
           </Grid>
           <Grid item xs={6}>
-            <TextField label="Longitude" type="number" step="0.000001" value={selectedLng} onChange={(e) => setSelectedLng(parseFloat(e.target.value))} fullWidth />
+            <TextField
+              label="Longitude"
+              type="number"
+              step="0.000001"
+              value={selectedLng}
+              onChange={(e) => setSelectedLng(parseFloat(e.target.value))}
+              fullWidth
+            />
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleConfirm}>Confirm Location</Button>
+        <Button variant="contained" onClick={handleConfirm}>
+          Confirm Location
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -58,6 +114,7 @@ export default function HydrantAdd() {
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
+  const [loadingAddress, setLoadingAddress] = useState(false);
   const [hydrantData, setHydrantData] = useState({
     hydrant_number: '',
     manufacturer: '',
@@ -78,7 +135,11 @@ export default function HydrantAdd() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setHydrantData(prev => ({ ...prev, latitude: position.coords.latitude, longitude: position.coords.longitude }));
+          setHydrantData(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }));
         },
         (error) => {},
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 }
@@ -164,15 +225,41 @@ export default function HydrantAdd() {
     }
   };
 
+  // Reverse geocode coordinates to address
+  const reverseGeocode = async (lat, lng) => {
+    setLoadingAddress(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'HydrantHub/1.0'
+          }
+        }
+      );
+      const data = await response.json();
+      
+      if (data && data.display_name) {
+        const address = data.display_name;
+        setHydrantData(prev => ({ ...prev, location_address: address }));
+      }
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+    } finally {
+      setLoadingAddress(false);
+    }
+  };
+
   const handleLocationSelect = (lat, lng) => {
     setHydrantData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    // Auto-generate address from coordinates
+    reverseGeocode(lat, lng);
   };
 
   const generateHydrantNumber = () => {
     const prefix = 'MLT';
-    const year = new Date().getFullYear();
     const sequence = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    const suggested = `${prefix}-${year}-${sequence}`;
+    const suggested = `${prefix}-${sequence}`;
     setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
   };
 
@@ -202,24 +289,57 @@ export default function HydrantAdd() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Business className="me-2" />Identification</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Business sx={{ mr: 1 }} />Identification</Typography>
               <Stack spacing={3}>
                 <Stack direction="row" spacing={1}>
-                  <TextField label="Hydrant Number *" value={hydrantData.hydrant_number} onChange={(e) => updateField('hydrant_number', e.target.value.toUpperCase())} error={!!errors.hydrant_number} helperText={errors.hydrant_number || 'Format: ABC-001 or ABCD-0001'} placeholder="MLT-2025-001" sx={{ flex: 1 }} />
+                  <TextField
+                    label="Hydrant Number *"
+                    value={hydrantData.hydrant_number}
+                    onChange={(e) => updateField('hydrant_number', e.target.value.toUpperCase())}
+                    error={!!errors.hydrant_number}
+                    helperText={errors.hydrant_number || 'Format: ABC-001 or ABCD-0001'}
+                    placeholder="MLT-001"
+                    sx={{ flex: 1 }}
+                  />
                   <Button variant="outlined" onClick={generateHydrantNumber} sx={{ minWidth: 100 }}>Generate</Button>
                 </Stack>
                 <FormControl fullWidth error={!!errors.manufacturer}>
                   <InputLabel>Manufacturer *</InputLabel>
-                  <Select value={hydrantData.manufacturer} onChange={(e) => { updateField('manufacturer', e.target.value); updateField('model', ''); }} label="Manufacturer *">
+                  <Select
+                    value={hydrantData.manufacturer}
+                    onChange={(e) => {
+                      updateField('manufacturer', e.target.value);
+                      updateField('model', '');
+                    }}
+                    label="Manufacturer *"
+                  >
                     {manufacturers.map(mfg => (<MenuItem key={mfg} value={mfg}>{mfg}</MenuItem>))}
                   </Select>
-                  {errors.manufacturer && (<Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1 }}>{errors.manufacturer}</Typography>)}
+                  {errors.manufacturer && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1 }}>
+                      {errors.manufacturer}
+                    </Typography>
+                  )}
                 </FormControl>
                 {hydrantData.manufacturer && (
-                  <Autocomplete options={models[hydrantData.manufacturer] || []} value={hydrantData.model} onChange={(e, newValue) => updateField('model', newValue || '')} renderInput={(params) => (<TextField {...params} label="Model" placeholder="Select or type model" />)} freeSolo />
+                  <Autocomplete
+                    options={models[hydrantData.manufacturer] || []}
+                    value={hydrantData.model}
+                    onChange={(e, newValue) => updateField('model', newValue || '')}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Model" placeholder="Select or type model" />
+                    )}
+                    freeSolo
+                  />
                 )}
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
-                  <DatePicker label="Installation Date" value={hydrantData.installation_date} onChange={(newValue) => updateField('installation_date', newValue)} maxDate={dayjs()} renderInput={(params) => <TextField {...params} />} />
+                  <DatePicker
+                    label="Installation Date"
+                    value={hydrantData.installation_date}
+                    onChange={(newValue) => updateField('installation_date', newValue)}
+                    maxDate={dayjs()}
+                    renderInput={(params) => <TextField {...params} />}
+                  />
                 </LocalizationProvider>
               </Stack>
             </CardContent>
@@ -229,36 +349,189 @@ export default function HydrantAdd() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><LocationOn className="me-2" />Location</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><LocationOn sx={{ mr: 1 }} />Location</Typography>
               <Stack spacing={3}>
-                <TextField label="Street Address *" value={hydrantData.location_address} onChange={(e) => updateField('location_address', e.target.value)} error={!!errors.location_address} helperText={errors.location_address || 'Full municipal address'} placeholder="123 Main Street, Milton, ON" fullWidth multiline />
-                <TextField label="Location Description" value={hydrantData.location_description} onChange={(e) => updateField('location_description', e.target.value)} placeholder="Northwest corner, near fire station entrance" fullWidth multiline rows={2} />
+                <TextField
+                  label="Street Address *"
+                  value={hydrantData.location_address}
+                  onChange={(e) => updateField('location_address', e.target.value)}
+                  error={!!errors.location_address}
+                  helperText={errors.location_address || 'Full municipal address'}
+                  placeholder="123 Main Street, Milton, ON"
+                  fullWidth
+                  multiline
+                  InputProps={{
+                    endAdornment: loadingAddress && (
+                      <InputAdornment position="end">
+                        <CircularProgress size={20} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                <TextField
+                  label="Location Description"
+                  value={hydrantData.location_description}
+                  onChange={(e) => updateField('location_description', e.target.value)}
+                  placeholder="Northwest corner, near fire station entrance"
+                  fullWidth
+                  multiline
+                  rows={2}
+                />
                 <Grid container spacing={2}>
-                  <Grid item xs={6}><TextField label="Latitude *" type="number" step="0.000001" value={hydrantData.latitude} onChange={(e) => updateField('latitude', parseFloat(e.target.value))} error={!!errors.latitude} helperText={errors.latitude} InputProps={{ startAdornment: (<InputAdornment position="start"><MyLocation /></InputAdornment>) }} fullWidth /></Grid>
-                  <Grid item xs={6}><TextField label="Longitude *" type="number" step="0.000001" value={hydrantData.longitude} onChange={(e) => updateField('longitude', parseFloat(e.target.value))} error={!!errors.longitude} helperText={errors.longitude} fullWidth /></Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Latitude *"
+                      type="number"
+                      step="0.000001"
+                      value={hydrantData.latitude}
+                      onChange={(e) => updateField('latitude', parseFloat(e.target.value))}
+                      error={!!errors.latitude}
+                      helperText={errors.latitude}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <MyLocation />
+                          </InputAdornment>
+                        )
+                      }}
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Longitude *"
+                      type="number"
+                      step="0.000001"
+                      value={hydrantData.longitude}
+                      onChange={(e) => updateField('longitude', parseFloat(e.target.value))}
+                      error={!!errors.longitude}
+                      helperText={errors.longitude}
+                      fullWidth
+                    />
+                  </Grid>
                 </Grid>
-                <Button variant="outlined" startIcon={<MapIcon />} onClick={() => setShowMapPicker(true)} fullWidth>Pick Location on Map</Button>
-                <Chip label={`${hydrantData.latitude.toFixed(6)}, ${hydrantData.longitude.toFixed(6)}`} variant="outlined" icon={<LocationOn />} sx={{ alignSelf: 'center' }} />
+                <Button
+                  variant="outlined"
+                  startIcon={<MapIcon />}
+                  onClick={() => setShowMapPicker(true)}
+                  fullWidth
+                >
+                  Pick Location on Map
+                </Button>
+                <Chip
+                  label={`${hydrantData.latitude.toFixed(6)}, ${hydrantData.longitude.toFixed(6)}`}
+                  variant="outlined"
+                  icon={<LocationOn />}
+                  sx={{ alignSelf: 'center' }}
+                />
               </Stack>
             </CardContent>
           </Card>
         </Grid>
         {/* Technical Specifications */}
         <Grid item xs={12} md={6}>
-          <Card><CardContent><Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Build className="me-2" />Specifications</Typography>
-            <Stack spacing={3}>
-              <TextField label="Watermain Size (mm) *" type="number" value={hydrantData.watermain_size_mm} onChange={(e) => updateField('watermain_size_mm', parseInt(e.target.value))} error={!!errors.watermain_size_mm} helperText={errors.watermain_size_mm || 'Common sizes: 150, 200, 250, 300mm'} InputProps={{ startAdornment: (<InputAdornment position="start"><Straighten /></InputAdornment>) }} fullWidth />
-              <FormControl fullWidth><InputLabel>Operational Status</InputLabel><Select value={hydrantData.operational_status} onChange={(e) => updateField('operational_status', e.target.value)} label="Operational Status"><MenuItem value="OPERATIONAL">Operational</MenuItem><MenuItem value="OUT_OF_SERVICE">Out of Service</MenuItem><MenuItem value="MAINTENANCE_REQUIRED">Maintenance Required</MenuItem><MenuItem value="TESTING">Testing</MenuItem></Select></FormControl>
-              <TextField label="Initial Static Pressure (PSI)" type="number" step="0.1" value={hydrantData.static_pressure_psi} onChange={(e) => updateField('static_pressure_psi', e.target.value)} error={!!errors.static_pressure_psi} helperText={errors.static_pressure_psi || 'Optional - if known from installation'} InputProps={{ startAdornment: (<InputAdornment position="start"><Opacity /></InputAdornment>) }} placeholder="72.5" fullWidth />
-              <FormControl fullWidth><InputLabel>NFPA Classification</InputLabel><Select value={hydrantData.nfpa_classification} onChange={(e) => updateField('nfpa_classification', e.target.value)} label="NFPA Classification"><MenuItem value="">Unknown (will be determined by flow test)</MenuItem><MenuItem value="AA">Class AA (1500+ GPM)</MenuItem><MenuItem value="A">Class A (1000-1499 GPM)</MenuItem><MenuItem value="B">Class B (500-999 GPM)</MenuItem><MenuItem value="C">Class C (Under 500 GPM)</MenuItem></Select></FormControl>
-            </Stack></CardContent></Card>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}><Build sx={{ mr: 1 }} />Specifications</Typography>
+              <Stack spacing={3}>
+                <TextField
+                  label="Watermain Size (mm) *"
+                  type="number"
+                  value={hydrantData.watermain_size_mm}
+                  onChange={(e) => updateField('watermain_size_mm', parseInt(e.target.value))}
+                  error={!!errors.watermain_size_mm}
+                  helperText={errors.watermain_size_mm || 'Common sizes: 150, 200, 250, 300mm'}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Straighten />
+                      </InputAdornment>
+                    )
+                  }}
+                  fullWidth
+                />
+                <FormControl fullWidth>
+                  <InputLabel>Operational Status</InputLabel>
+                  <Select
+                    value={hydrantData.operational_status}
+                    onChange={(e) => updateField('operational_status', e.target.value)}
+                    label="Operational Status"
+                  >
+                    <MenuItem value="OPERATIONAL">Operational</MenuItem>
+                    <MenuItem value="OUT_OF_SERVICE">Out of Service</MenuItem>
+                    <MenuItem value="MAINTENANCE_REQUIRED">Maintenance Required</MenuItem>
+                    <MenuItem value="TESTING">Testing</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Initial Static Pressure (PSI)"
+                  type="number"
+                  step="0.1"
+                  value={hydrantData.static_pressure_psi}
+                  onChange={(e) => updateField('static_pressure_psi', e.target.value)}
+                  error={!!errors.static_pressure_psi}
+                  helperText={errors.static_pressure_psi || 'Optional - if known from installation'}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Opacity />
+                      </InputAdornment>
+                    )
+                  }}
+                  placeholder="72.5"
+                  fullWidth
+                />
+                <FormControl fullWidth>
+                  <InputLabel>NFPA Classification</InputLabel>
+                  <Select
+                    value={hydrantData.nfpa_classification}
+                    onChange={(e) => updateField('nfpa_classification', e.target.value)}
+                    label="NFPA Classification"
+                  >
+                    <MenuItem value="">Unknown (will be determined by flow test)</MenuItem>
+                    <MenuItem value="AA">Class AA (1500+ GPM)</MenuItem>
+                    <MenuItem value="A">Class A (1000-1499 GPM)</MenuItem>
+                    <MenuItem value="B">Class B (500-999 GPM)</MenuItem>
+                    <MenuItem value="C">Class C (Under 500 GPM)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </CardContent>
+          </Card>
         </Grid>
         {/* Notes Section */}
         <Grid item xs={12} md={6}>
-          <Card><CardContent><Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Additional Information</Typography><TextField label="Inspector Notes" value={hydrantData.inspector_notes} onChange={(e) => updateField('inspector_notes', e.target.value)} placeholder="Installation notes, special considerations, access requirements..." fullWidth multiline rows={6} /><Alert severity="info" sx={{ mt: 2 }}><Typography variant="body2"><strong>Next Steps:</strong> After saving, you can: • Record initial flow test (NFPA 291) • Schedule first maintenance inspection • Add photos and documentation</Typography></Alert></CardContent></Card>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Additional Information</Typography>
+              <TextField
+                label="Inspector Notes"
+                value={hydrantData.inspector_notes}
+                onChange={(e) => updateField('inspector_notes', e.target.value)}
+                placeholder="Installation notes, special considerations, access requirements..."
+                fullWidth
+                multiline
+                rows={6}
+              />
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  <strong>Next Steps:</strong> After saving, you can:
+                  • Record initial flow test (NFPA 291)
+                  • Schedule first maintenance inspection
+                  • Add photos and documentation
+                </Typography>
+              </Alert>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
-      <MapPicker lat={hydrantData.latitude} lng={hydrantData.longitude} onLocationSelect={handleLocationSelect} open={showMapPicker} onClose={() => setShowMapPicker(false)} />
+      <MapPicker
+        lat={hydrantData.latitude}
+        lng={hydrantData.longitude}
+        onLocationSelect={handleLocationSelect}
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+      />
     </Box>
   );
 }
