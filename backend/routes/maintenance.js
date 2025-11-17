@@ -74,29 +74,22 @@ router.post('/inspections',
           hydrant_id,
           inspection_type,
           inspector_name,
-          inspector_license,
           inspection_date,
-          scheduled_date,
           overall_status,
-          overall_notes,
-          compliance_status
+          overall_notes
         } = req.body;
-
-        // Process uploaded photos
-        const photoUrls = req.files ? req.files.map(file => `/uploads/maintenance/${file.filename}`) : [];
 
         // Create main inspection record
         const inspectionResult = await client.query(`
           INSERT INTO maintenance_inspections (
-            hydrant_id, inspection_type, inspector_name, inspector_license,
+            hydrant_id, inspection_type, inspector_name,
             inspection_date, overall_status, inspector_notes, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *
         `, [
           hydrant_id, 
           inspection_type || 'Annual Inspection', 
           inspector_name, 
-          inspector_license,
           inspection_date, 
           overall_status || 'COMPLETED', 
           overall_notes
@@ -108,15 +101,14 @@ router.post('/inspections',
         await client.query(`
           INSERT INTO maintenance_history (
             hydrant_id, action_type, action_description, action_date,
-            performed_by, license_number, notes, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            performed_by, notes, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [
           hydrant_id,
           'INSPECTION',
           `${inspection_type || 'Annual Inspection'} completed`,
           inspection_date,
           inspector_name,
-          inspector_license,
           overall_notes,
           req.user.id
         ]);
@@ -142,6 +134,7 @@ router.post('/inspections',
     }
   }
 );
+
 
 
 // Get maintenance inspections for a hydrant
