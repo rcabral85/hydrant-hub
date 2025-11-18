@@ -15,16 +15,16 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration - explicit whitelist
+// CORS configuration - use environment variables
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : [
+      'http://localhost:3000',
+      'http://localhost:5173',
+    ];
+
 const corsOptions = {
-  origin: [
-    'https://hydranthub.tridentsys.ca',
-    'https://app.tridentsys.ca',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://stunning-cascaron-f49a60.netlify.app',
-    'https://hydrant-hub-production.up.railway.app',
-  ],
+  origin: allowedOrigins,
   credentials: true,
   optionsSuccessStatus: 200,
 };
@@ -67,185 +67,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/hydrants/import', bulkImportRoutes);
 app.use('/api/hydrants', hydrantRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
-app.use('/api/tests', flowTestRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
-
-// ==================== Maintenance Routes ====================
-
-app.get('/api/maintenance', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching maintenance records:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/inspections', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1 
-      AND m.maintenance_type = 'inspection'
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching inspections:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/work-orders', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1 
-      AND m.maintenance_type IN ('repair', 'painting', 'lubrication', 'winterization', 'other')
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching work orders:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/stats', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const stats = await db.query(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled,
-        SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1
-    `, [organizationId]);
-
-    res.json(stats.rows[0]);
-  } catch (error) {
-    console.error('Error fetching maintenance stats:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/compliance/schedule', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const schedule = await db.query(`
-      SELECT 
-        h.hydrant_id,
-        h.location,
-        h.last_inspection_date,
-        CASE 
-          WHEN h.last_inspection_date IS NULL THEN 'overdue'
-          WHEN h.last_inspection_date < NOW() - INTERVAL '1 year' THEN 'overdue'
-          WHEN h.last_inspection_date < NOW() - INTERVAL '9 months' THEN 'due_soon'
-          ELSE 'compliant'
-        END as compliance_status
-      FROM hydrants h
-      WHERE h.organization_id = $1
-      ORDER BY h.last_inspection_date ASC NULLS FIRST
-    `, [organizationId]);
-
-    res.json(schedule.rows);
-  } catch (error) {
-    console.error('Error fetching compliance schedule:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.post('/api/maintenance', authenticateToken, async (req, res) => {
-  try {
-    const {
-      hydrant_id,
-      maintenance_type,
-      description,
-      status,
-      scheduled_date,
-      completed_date,
-      technician,
-      notes
-    } = req.body;
-
-    const result = await db.query(`
-      INSERT INTO maintenance (
-        hydrant_id, maintenance_type, description, status,
-        scheduled_date, completed_date, technician, notes
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [hydrant_id, maintenance_type, description, status, scheduled_date, completed_date, technician, notes]);
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating maintenance record:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ==================== End Maintenance Routes ====================
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -259,12 +82,11 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       signup: '/api/org-signup',
       hydrants: '/api/hydrants',
-      tests: '/api/tests',
       flow_tests: '/api/flow-tests',
       maintenance: '/api/maintenance',
       admin: '/api/admin',
     },
-    documentation: 'https://github.com/rcabral85/hydrant-management',
+    documentation: 'https://github.com/rcabral85/hydrant-hub',
   });
 });
 
@@ -279,7 +101,6 @@ app.get('/api', (req, res) => {
       '/api/auth': 'Authentication and user management',
       '/api/org-signup': 'Organization registration and account creation',
       '/api/hydrants': 'Hydrant inventory and management',
-      '/api/tests': 'Flow test data and NFPA 291 calculations (alias)',
       '/api/flow-tests': 'Flow test data and NFPA 291 calculations',
       '/api/maintenance': 'Maintenance tracking and compliance',
       '/api/admin': 'Administrative functions',
@@ -330,16 +151,22 @@ app.use('*', (req, res) => {
       'POST /api/auth/register',
       'POST /api/org-signup/signup',
       'GET /api/hydrants',
-      'GET /api/tests',
       'GET /api/flow-tests',
       'GET /api/maintenance',
     ],
   });
 });
 
-// Global error handler
+// Global error handler - Enhanced logging
 app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
+  // Always log errors server-side
+  console.error('Unhandled error:', {
+    message: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+  });
 
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -352,28 +179,50 @@ app.use((error, req, res, next) => {
 
 // Graceful shutdown handling
 process.on('SIGTERM', async () => {
-  try { await db.end(); } catch {}
+  console.log('SIGTERM received, closing gracefully...');
+  try { 
+    await db.end(); 
+    console.log('Database connections closed');
+  } catch (err) {
+    console.error('Error closing database:', err);
+  }
   process.exit(0);
 });
+
 process.on('SIGINT', async () => {
-  try { await db.end(); } catch {}
+  console.log('SIGINT received, closing gracefully...');
+  try { 
+    await db.end(); 
+    console.log('Database connections closed');
+  } catch (err) {
+    console.error('Error closing database:', err);
+  }
   process.exit(0);
 });
 
 // Start server
 app.listen(PORT, async () => {
   console.log(`🚀 HydrantHub API Server running on port ${PORT}`);
-  console.log(`🌍 CORS enabled for: ${corsOptions.origin}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 CORS enabled for: ${allowedOrigins.join(', ')}`);
 
   try {
     const health = await db.healthCheck();
     if (health.status === 'healthy') {
+      console.log('✅ Database connection healthy');
       try {
         const migration = require('./scripts/railway-migration');
         await migration();
-      } catch {}
+        console.log('✅ Database migrations completed');
+      } catch (migrationError) {
+        console.warn('⚠️  Migration check failed:', migrationError.message);
+      }
+    } else {
+      console.error('❌ Database connection unhealthy');
     }
-  } catch {}
+  } catch (healthError) {
+    console.error('❌ Database health check failed:', healthError.message);
+  }
 });
 
 module.exports = app;
