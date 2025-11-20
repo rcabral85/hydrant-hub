@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid, 
-  Card, 
-  CardContent, 
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Card,
+  CardContent,
   CircularProgress,
   Alert,
   Chip
 } from '@mui/material';
-import { 
+import {
   LocalFireDepartment as HydrantIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
@@ -30,13 +30,13 @@ function EnhancedDashboard() {
   useEffect(() => {
     const fetchMetrics = async () => {
       const token = localStorage.getItem('hydrantHub_token');
-      
+
       try {
         setLoading(true);
-const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`, {
+        const response = await axios.get(`${API_URL}/dashboard/stats?t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         console.log('Dashboard metrics:', response.data);
         setMetrics(response.data);
         setError('');
@@ -81,11 +81,11 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           Complete hydrant management & regulatory compliance platform
         </Typography>
         {(isAdmin || isSuperadmin) && (
-          <Chip 
-            label="Administrator View" 
-            color="primary" 
-            size="small" 
-            sx={{ mt: 1 }} 
+          <Chip
+            label="Administrator View"
+            color="primary"
+            size="small"
+            sx={{ mt: 1 }}
           />
         )}
       </Box>
@@ -125,17 +125,17 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
 
         {/* Overdue Tests */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', bgcolor: metrics?.hydrants?.overdueTests > 0 ? 'warning.main' : 'success.light', color: 'white' }}>
+          <Card sx={{ height: '100%', bgcolor: metrics?.hydrants?.testOverdue > 0 ? 'warning.main' : 'success.light', color: 'white' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <WarningIcon sx={{ mr: 1 }} />
                 <Typography variant="h4" fontWeight={700}>
-                  {metrics?.hydrants?.overdueTests || 0}
+                  {metrics?.hydrants?.testOverdue || 0}
                 </Typography>
               </Box>
               <Typography variant="body2">Overdue Inspections</Typography>
               <Typography variant="caption">
-                {metrics?.hydrants?.overdueTests > 0 ? 'Immediate attention' : 'All up to date'}
+                {metrics?.hydrants?.testOverdue > 0 ? 'Immediate attention' : 'All up to date'}
               </Typography>
             </CardContent>
           </Card>
@@ -167,9 +167,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class AA'] || 
-                 metrics?.nfpaClassification?.['CLASS_AA'] || 
-                 metrics?.nfpaClassification?.['AA'] || 0}
+                {metrics?.nfpaClasses?.['AA'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class AA (1500+ GPM)
@@ -179,9 +177,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class A'] || 
-                 metrics?.nfpaClassification?.['CLASS_A'] || 
-                 metrics?.nfpaClassification?.['A'] || 0}
+                {metrics?.nfpaClasses?.['A'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class A (1000-1499 GPM)
@@ -191,9 +187,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class B'] || 
-                 metrics?.nfpaClassification?.['CLASS_B'] || 
-                 metrics?.nfpaClassification?.['B'] || 0}
+                {metrics?.nfpaClasses?.['B'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class B (500-999 GPM)
@@ -203,9 +197,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           <Grid item xs={12} sm={6} md={3}>
             <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700}>
-                {metrics?.nfpaClassification?.['Class C'] || 
-                 metrics?.nfpaClassification?.['CLASS_C'] || 
-                 metrics?.nfpaClassification?.['C'] || 0}
+                {metrics?.nfpaClasses?.['C'] || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Class C (&lt;500 GPM)
@@ -223,7 +215,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
         <Grid container spacing={3}>
           <Grid item xs={12} sm={4}>
             <Typography variant="h4" fontWeight={700} color="primary">
-              {metrics?.activity?.recentInspections || 0}
+              {metrics?.maintenance?.inspections || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Inspections Completed
@@ -231,7 +223,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           </Grid>
           <Grid item xs={12} sm={4}>
             <Typography variant="h4" fontWeight={700} color="primary">
-              {metrics?.activity?.recentFlowTests || 0}
+              {metrics?.flowTests?.last30Days || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Flow Tests Conducted
@@ -239,7 +231,7 @@ const response = await axios.get(`${API_URL}/dashboard/metrics?t=${Date.now()}`,
           </Grid>
           <Grid item xs={12} sm={4}>
             <Typography variant="h4" fontWeight={700} color="primary">
-              {metrics?.hydrants?.total - (metrics?.hydrants?.overdueTests || 0)}
+              {metrics?.hydrants?.total - (metrics?.hydrants?.testOverdue || 0)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Hydrants Up to Date

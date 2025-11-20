@@ -17,8 +17,8 @@ import MaintenancePage from './components/MaintenancePage';
 import ReportsPage from './components/ReportsPage';
 import HydrantAdd from './components/HydrantAdd';
 import HydrantImport from './components/HydrantImport';
-import MobileInspectionMUI from './components/MobileInspectionMUI';
-import Inspections from './pages/Inspections';
+import MobileInspection from './components/MobileInspection';
+
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -136,9 +136,9 @@ function AppRoutes() {
       
       {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute requireAdmin={true}><MaintenancePage /></ProtectedRoute>} />
-      <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
-      <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
-      <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspectionMUI /></ProtectedRoute>} />
+      </ProtectedRoute>} />
+      <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
+      <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
       
       {/* Reports Routes - Admin only */}
       <Route path="/reports" element={<ProtectedRoute requireAdmin={true}><ReportsPage /></ProtectedRoute>} />

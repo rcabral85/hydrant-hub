@@ -4,7 +4,7 @@
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "postgis";
+-- CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- Organizations table (multi-tenancy)
 CREATE TABLE IF NOT EXISTS organizations (
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS hydrants (
     address TEXT,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
-    location GEOMETRY(Point, 4326),
+    -- location GEOMETRY(Point, 4326),
     manufacturer VARCHAR(100),
     model VARCHAR(100),
     year_installed INTEGER,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS hydrants (
 );
 
 -- Create spatial index on hydrant locations
-CREATE INDEX IF NOT EXISTS idx_hydrants_location ON hydrants USING GIST(location);
+-- CREATE INDEX IF NOT EXISTS idx_hydrants_location ON hydrants USING GIST(location);
 
 -- Flow tests table (NFPA 291 compliant)
 CREATE TABLE IF NOT EXISTS flow_tests (
@@ -206,20 +206,20 @@ CREATE TRIGGER update_maintenance_records_updated_at BEFORE UPDATE ON maintenanc
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger to automatically update hydrant location geometry from lat/long
-CREATE OR REPLACE FUNCTION update_hydrant_location()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
-        NEW.location = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION update_hydrant_location()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--     IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+--         NEW.location = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
+--     END IF;
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER hydrant_location_trigger
-    BEFORE INSERT OR UPDATE ON hydrants
-    FOR EACH ROW
-    EXECUTE FUNCTION update_hydrant_location();
+-- CREATE TRIGGER hydrant_location_trigger
+--     BEFORE INSERT OR UPDATE ON hydrants
+--     FOR EACH ROW
+--     EXECUTE FUNCTION update_hydrant_location();
 
 -- Insert default/demo organization (optional, for testing)
 -- Comment out or remove for production

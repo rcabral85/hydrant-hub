@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h1>Direct Login Test</h1>
+    <div>
+        <input type="text" id="email" value="rcabral85@gmail.com" placeholder="Email">
+        <input type="password" id="password" value="password123" placeholder="Password">
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    <div id="result" style="margin-top: 20px; white-space: pre-wrap;"></div>
+
+    <script>
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.textContent = 'Testing login...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        identifier: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.textContent = '✅ SUCCESS!\n\n' + JSON.stringify(data, null, 2);
+                    resultDiv.style.color = 'green';
+                } else {
+                    resultDiv.textContent = '❌ FAILED\n\nStatus: ' + response.status + '\n\n' + JSON.stringify(data, null, 2);
+                    resultDiv.style.color = 'red';
+                }
+            } catch (error) {
+                resultDiv.textContent = '❌ ERROR\n\n' + error.message + '\n\nThis is likely a CORS error. Check the browser console for details.';
+                resultDiv.style.color = 'red';
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

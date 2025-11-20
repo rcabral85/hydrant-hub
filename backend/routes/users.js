@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
+const requireAdmin = requireRole('admin');
 const crypto = require('crypto');
 
 // Apply authentication to all routes
@@ -19,8 +20,8 @@ router.post('/invite', requireAdmin, async (req, res) => {
 
     // Validate input
     if (!email || !first_name || !last_name) {
-      return res.status(400).json({ 
-        error: 'Email, first name, and last name are required' 
+      return res.status(400).json({
+        error: 'Email, first name, and last name are required'
       });
     }
 
@@ -43,8 +44,8 @@ router.post('/invite', requireAdmin, async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({ 
-        error: 'User with this email already exists' 
+      return res.status(400).json({
+        error: 'User with this email already exists'
       });
     }
 
@@ -111,8 +112,8 @@ router.post('/accept-invitation', async (req, res) => {
 
     // Validate input
     if (!token || !username || !password) {
-      return res.status(400).json({ 
-        error: 'Token, username, and password are required' 
+      return res.status(400).json({
+        error: 'Token, username, and password are required'
       });
     }
 
