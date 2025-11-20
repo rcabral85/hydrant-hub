@@ -61,6 +61,7 @@ const orgSignupRoutes = require('./routes/org-signup');
 const bulkImportRoutes = require('./routes/bulkImport');
 const dashboardRoutes = require('./routes/dashboard');
 const maintenanceRoutes = require('./routes/maintenance');
+const userRoutes = require('./routes/users'); // From PR #31
 
 // Public routes (no authentication required)
 app.use('/api/health', healthRoutes);
@@ -76,6 +77,7 @@ app.use('/api/flow-tests', flowTestRoutes);
 app.use('/api/tests', flowTestRoutes); // Alias for flow-tests
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/users', userRoutes); // From PR #31
 
 // ============================================
 // API DOCUMENTATION ENDPOINTS
@@ -98,6 +100,7 @@ app.get('/', (req, res) => {
       maintenance: '/api/maintenance',
       dashboard: '/api/dashboard',
       admin: '/api/admin',
+      users: '/api/users',
     },
     documentation: 'https://github.com/rcabral85/hydrant-hub',
   });
@@ -120,6 +123,7 @@ app.get('/api', (req, res) => {
       '/api/maintenance': 'Maintenance tracking, inspections, and work orders',
       '/api/dashboard': 'Dashboard statistics and recent activity',
       '/api/admin': 'Administrative functions and user management',
+      '/api/users': 'User management and team members',
     },
   });
 });
