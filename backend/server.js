@@ -5,17 +5,20 @@ const morgan = require('morgan');
 const path = require('path');
 require('dotenv').config();
 
-// Test database connection first
+// Database connection
 const { db } = require('./config/database');
-const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ============================================
+// MIDDLEWARE
+// ============================================
+
 // Security middleware
 app.use(helmet());
 
-// CORS configuration - explicit whitelist
+// CORS configuration
 const corsOptions = {
   origin: [
     'https://hydranthub.tridentsys.ca',
@@ -44,7 +47,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Import routes
+// ============================================
+// ROUTES
+// ============================================
+
+// Import route modules
 const adminRoutes = require('./routes/admin');
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
@@ -55,203 +62,30 @@ const bulkImportRoutes = require('./routes/bulkImport');
 const dashboardRoutes = require('./routes/dashboard');
 const maintenanceRoutes = require('./routes/maintenance');
 
-// API Routes - Order matters! More specific routes first!
-
-// Public routes (no auth)
+// Public routes (no authentication required)
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/org-signup', orgSignupRoutes);
 
-// Protected routes (auth required) - specific before general
+// Protected routes (authentication required)
+// Order matters - more specific routes first!
 app.use('/api/admin', adminRoutes);
 app.use('/api/hydrants/import', bulkImportRoutes);
 app.use('/api/hydrants', hydrantRoutes);
 app.use('/api/flow-tests', flowTestRoutes);
-app.use('/api/tests', flowTestRoutes);
+app.use('/api/tests', flowTestRoutes); // Alias for flow-tests
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 
-// ==================== Maintenance Routes ====================
-
-app.get('/api/maintenance', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching maintenance records:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/inspections', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1 
-      AND m.maintenance_type = 'inspection'
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching inspections:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/work-orders', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const result = await db.query(`
-      SELECT m.*, h.hydrant_id, h.location
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1 
-      AND m.maintenance_type IN ('repair', 'painting', 'lubrication', 'winterization', 'other')
-      ORDER BY m.scheduled_date DESC
-    `, [organizationId]);
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching work orders:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/stats', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const stats = await db.query(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled,
-        SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
-      FROM maintenance m
-      JOIN hydrants h ON m.hydrant_id = h.id
-      WHERE h.organization_id = $1
-    `, [organizationId]);
-
-    res.json(stats.rows[0]);
-  } catch (error) {
-    console.error('Error fetching maintenance stats:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/maintenance/compliance/schedule', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const user = await db.query('SELECT organization_id FROM users WHERE id = $1', [userId]);
-    
-    if (!user.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const organizationId = user.rows[0].organization_id;
-
-    const schedule = await db.query(`
-      SELECT 
-        h.hydrant_id,
-        h.location,
-        h.last_inspection_date,
-        CASE 
-          WHEN h.last_inspection_date IS NULL THEN 'overdue'
-          WHEN h.last_inspection_date < NOW() - INTERVAL '1 year' THEN 'overdue'
-          WHEN h.last_inspection_date < NOW() - INTERVAL '9 months' THEN 'due_soon'
-          ELSE 'compliant'
-        END as compliance_status
-      FROM hydrants h
-      WHERE h.organization_id = $1
-      ORDER BY h.last_inspection_date ASC NULLS FIRST
-    `, [organizationId]);
-
-    res.json(schedule.rows);
-  } catch (error) {
-    console.error('Error fetching compliance schedule:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.post('/api/maintenance', authenticateToken, async (req, res) => {
-  try {
-    const {
-      hydrant_id,
-      maintenance_type,
-      description,
-      status,
-      scheduled_date,
-      completed_date,
-      technician,
-      notes
-    } = req.body;
-
-    const result = await db.query(`
-      INSERT INTO maintenance (
-        hydrant_id, maintenance_type, description, status,
-        scheduled_date, completed_date, technician, notes
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [hydrant_id, maintenance_type, description, status, scheduled_date, completed_date, technician, notes]);
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating maintenance record:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ==================== End Maintenance Routes ====================
+// ============================================
+// API DOCUMENTATION ENDPOINTS
+// ============================================
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
     message: 'HydrantHub API Server',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
     environment: process.env.NODE_ENV || 'development',
     endpoints: {
@@ -262,9 +96,10 @@ app.get('/', (req, res) => {
       tests: '/api/tests',
       flow_tests: '/api/flow-tests',
       maintenance: '/api/maintenance',
+      dashboard: '/api/dashboard',
       admin: '/api/admin',
     },
-    documentation: 'https://github.com/rcabral85/hydrant-management',
+    documentation: 'https://github.com/rcabral85/hydrant-hub',
   });
 });
 
@@ -272,68 +107,66 @@ app.get('/', (req, res) => {
 app.get('/api', (req, res) => {
   res.json({
     name: 'HydrantHub API',
-    version: '1.0.0',
+    version: '2.0.0',
     description: 'Fire hydrant flow testing and management platform API',
     endpoints: {
       '/api/health': 'Health check and system status',
       '/api/auth': 'Authentication and user management',
       '/api/org-signup': 'Organization registration and account creation',
       '/api/hydrants': 'Hydrant inventory and management',
+      '/api/hydrants/import': 'Bulk import hydrants from CSV',
       '/api/tests': 'Flow test data and NFPA 291 calculations (alias)',
       '/api/flow-tests': 'Flow test data and NFPA 291 calculations',
-      '/api/maintenance': 'Maintenance tracking and compliance',
-      '/api/admin': 'Administrative functions',
+      '/api/maintenance': 'Maintenance tracking, inspections, and work orders',
+      '/api/dashboard': 'Dashboard statistics and recent activity',
+      '/api/admin': 'Administrative functions and user management',
     },
   });
 });
 
-// Database debug endpoint
-app.get('/api/debug/schema', async (req, res) => {
-  try {
-    const flowTestCols = await db.query(`
-      SELECT column_name, data_type, is_nullable
-      FROM information_schema.columns 
-      WHERE table_name = 'flow_tests' 
-      ORDER BY ordinal_position
-    `);
+// Database debug endpoint (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/schema', async (req, res) => {
+    try {
+      const tables = await db.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+        ORDER BY table_name
+      `);
 
-    const hydrantCols = await db.query(`
-      SELECT column_name, data_type, is_nullable
-      FROM information_schema.columns 
-      WHERE table_name = 'hydrants' 
-      ORDER BY ordinal_position
-    `);
+      const tableDetails = {};
+      for (const table of tables.rows) {
+        const columns = await db.query(`
+          SELECT column_name, data_type, is_nullable, column_default
+          FROM information_schema.columns 
+          WHERE table_name = $1
+          ORDER BY ordinal_position
+        `, [table.table_name]);
+        tableDetails[table.table_name] = columns.rows;
+      }
 
-    res.json({
-      success: true,
-      tables: {
-        flow_tests: flowTestCols.rows,
-        hydrants: hydrantCols.rows,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+      res.json({
+        success: true,
+        tables: tableDetails,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+}
+
+// ============================================
+// ERROR HANDLERS
+// ============================================
 
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     message: `Cannot ${req.method} ${req.originalUrl}`,
-    availableEndpoints: [
-      'GET /',
-      'GET /api',
-      'GET /api/health',
-      'GET /api/debug/schema',
-      'POST /api/auth/login',
-      'POST /api/auth/register',
-      'POST /api/org-signup/signup',
-      'GET /api/hydrants',
-      'GET /api/tests',
-      'GET /api/flow-tests',
-      'GET /api/maintenance',
-    ],
+    hint: 'See available endpoints at GET /api',
   });
 });
 
@@ -350,30 +183,62 @@ app.use((error, req, res, next) => {
   });
 });
 
+// ============================================
+// SERVER STARTUP & SHUTDOWN
+// ============================================
+
 // Graceful shutdown handling
 process.on('SIGTERM', async () => {
-  try { await db.end(); } catch {}
+  console.log('SIGTERM signal received: closing HTTP server');
+  try {
+    await db.end();
+    console.log('Database connections closed');
+  } catch (error) {
+    console.error('Error closing database:', error);
+  }
   process.exit(0);
 });
+
 process.on('SIGINT', async () => {
-  try { await db.end(); } catch {}
+  console.log('\nSIGINT signal received: closing HTTP server');
+  try {
+    await db.end();
+    console.log('Database connections closed');
+  } catch (error) {
+    console.error('Error closing database:', error);
+  }
   process.exit(0);
 });
 
 // Start server
 app.listen(PORT, async () => {
-  console.log(`🚀 HydrantHub API Server running on port ${PORT}`);
-  console.log(`🌍 CORS enabled for: ${corsOptions.origin}`);
+  console.log('🚀 HydrantHub API Server');
+  console.log(`📍 Port: ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 CORS enabled for: ${corsOptions.origin.length} origins`);
 
+  // Check database connection
   try {
     const health = await db.healthCheck();
     if (health.status === 'healthy') {
+      console.log('✅ Database connected');
+      
+      // Run migrations if available
       try {
         const migration = require('./scripts/railway-migration');
         await migration();
-      } catch {}
+        console.log('✅ Database migrations applied');
+      } catch (migrationError) {
+        console.log('ℹ️  No migrations to apply');
+      }
+    } else {
+      console.error('❌ Database connection failed');
     }
-  } catch {}
+  } catch (error) {
+    console.error('❌ Database error:', error.message);
+  }
+
+  console.log('\n📚 API Documentation: http://localhost:' + PORT + '/api');
 });
 
 module.exports = app;
