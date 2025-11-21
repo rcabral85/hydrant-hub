@@ -559,6 +559,82 @@ router.get('/inspections',
   }
 );
 
+// Create new work order
+router.post('/work-orders',
+  authMiddleware,
+  orgContext,
+  upload.array('photos', 5),
+  [
+    body('hydrant_id').isInt().withMessage('Valid hydrant ID required'),
+    body('title').notEmpty().withMessage('Title is required'),
+    body('priority').isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+    body('target_completion_date').optional().isISO8601()
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const {
+        hydrant_id, title, description, priority, category,
+        assigned_to, department, target_completion_date,
+        estimated_cost, materials_required
+      } = req.body;
+
+      // Generate work order number
+      const workOrderNumber = 'WO-' + Date.now();
+
+      // Prepare description with extra fields
+      let fullDescription = description || '';
+      if (category) fullDescription += `\n\nCategory: ${category}`;
+      if (department) fullDescription += `\nDepartment: ${department}`;
+      if (estimated_cost) fullDescription += `\nEstimated Cost: $${estimated_cost}`;
+      if (materials_required) {
+        try {
+          const materials = typeof materials_required === 'string' ? JSON.parse(materials_required) : materials_required;
+          if (Array.isArray(materials) && materials.length > 0) {
+            fullDescription += `\nMaterials Required: ${materials.join(', ')}`;
+          }
+        } catch (e) {
+          // Ignore parsing error
+        }
+      }
+
+      const client = await pool.connect();
+      try {
+        const result = await client.query(`
+          INSERT INTO repair_work_orders (
+            hydrant_id, work_order_number, title, description,
+            priority, status, target_date, created_by, created_at
+          ) VALUES ($1, $2, $3, $4, $5, 'CREATED', $6, $7, NOW())
+          RETURNING *
+        `, [
+          hydrant_id,
+          workOrderNumber,
+          title,
+          fullDescription,
+          priority,
+          target_completion_date || null,
+          req.user.id
+        ]);
+
+        res.status(201).json({
+          success: true,
+          message: 'Work order created successfully',
+          work_order: result.rows[0]
+        });
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Error creating work order:', error);
+      res.status(500).json({ error: 'Failed to create work order' });
+    }
+  }
+);
+
 
 // Get all work orders for the organization  
 router.get('/work-orders',

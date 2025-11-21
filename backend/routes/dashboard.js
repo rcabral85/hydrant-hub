@@ -13,7 +13,7 @@ router.use(authenticateToken);
 // Get comprehensive dashboard statistics
 router.get('/stats', async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // Get user's organization
     const userQuery = await db.query(
@@ -62,9 +62,9 @@ router.get('/stats', async (req, res) => {
     const maintenanceStats = await db.query(`
       SELECT 
         COUNT(*) as total_maintenance,
-        COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled,
-        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
-        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE m.status = 'scheduled') as scheduled,
+        COUNT(*) FILTER (WHERE m.status = 'in_progress') as in_progress,
+        COUNT(*) FILTER (WHERE m.status = 'completed') as completed,
         COUNT(*) FILTER (WHERE maintenance_type = 'inspection') as inspections,
         COUNT(*) FILTER (WHERE maintenance_type IN ('repair', 'painting', 'lubrication', 'winterization', 'other')) as work_orders
       FROM maintenance m
@@ -83,7 +83,6 @@ router.get('/stats', async (req, res) => {
       WHERE organization_id = $1
     `, [organizationId]);
 
-    // Calculate compliance percentage
     const totalHydrants = parseInt(hydrantStats.rows[0].total_hydrants) || 0;
     const inspectionOverdue = parseInt(hydrantStats.rows[0].inspection_overdue) || 0;
     const neverInspected = parseInt(hydrantStats.rows[0].never_inspected) || 0;
@@ -158,15 +157,15 @@ router.get('/recent-activity', async (req, res) => {
     const activities = await db.query(`
       SELECT 
         'maintenance' as type,
-        m.id,
-        m.maintenance_type as subtype,
-        m.title,
-        m.status,
-        h.hydrant_id,
-        h.address as location,
-        u.first_name || ' ' || u.last_name as performed_by,
-        COALESCE(m.completed_date, m.scheduled_date) as activity_date,
-        m.created_at
+      m.id,
+      m.maintenance_type as subtype,
+      m.title,
+      m.status,
+      h.hydrant_id,
+      h.address as location,
+      u.first_name || ' ' || u.last_name as performed_by,
+      COALESCE(m.completed_date, m.scheduled_date) as activity_date,
+      m.created_at
       FROM maintenance m
       JOIN hydrants h ON m.hydrant_id = h.id
       LEFT JOIN users u ON m.assigned_to = u.id
@@ -176,15 +175,15 @@ router.get('/recent-activity', async (req, res) => {
 
       SELECT 
         'flow_test' as type,
-        ft.id,
-        'flow_test' as subtype,
-        'Flow Test - ' || ft.test_number as title,
-        CASE WHEN ft.is_nfpa_compliant THEN 'compliant' ELSE 'non_compliant' END as status,
-        h.hydrant_id,
-        h.address as location,
-        u.first_name || ' ' || u.last_name as performed_by,
-        ft.test_date as activity_date,
-        ft.created_at
+      ft.id,
+      'flow_test' as subtype,
+      'Flow Test - ' || ft.test_number as title,
+      CASE WHEN ft.is_nfpa_compliant THEN 'compliant' ELSE 'non_compliant' END as status,
+      h.hydrant_id,
+      h.address as location,
+      u.first_name || ' ' || u.last_name as performed_by,
+      ft.test_date as activity_date,
+      ft.created_at
       FROM flow_tests ft
       JOIN hydrants h ON ft.hydrant_id = h.id
       LEFT JOIN users u ON ft.tester_id = u.id
@@ -192,7 +191,7 @@ router.get('/recent-activity', async (req, res) => {
 
       ORDER BY activity_date DESC NULLS LAST, created_at DESC
       LIMIT $2
-    `, [organizationId, limit]);
+      `, [organizationId, limit]);
 
     res.json(activities.rows);
 
@@ -224,24 +223,24 @@ router.get('/upcoming-maintenance', async (req, res) => {
     const upcoming = await db.query(`
       SELECT 
         m.id,
-        m.work_order_number,
-        m.maintenance_type,
-        m.title,
-        m.priority,
-        m.status,
-        m.scheduled_date,
-        h.hydrant_id,
-        h.address as location,
-        u.first_name || ' ' || u.last_name as assigned_to_name
+      m.work_order_number,
+      m.maintenance_type,
+      m.title,
+      m.priority,
+      m.status,
+      m.scheduled_date,
+      h.hydrant_id,
+      h.address as location,
+      u.first_name || ' ' || u.last_name as assigned_to_name
       FROM maintenance m
       JOIN hydrants h ON m.hydrant_id = h.id
       LEFT JOIN users u ON m.assigned_to = u.id
       WHERE h.organization_id = $1
-        AND m.status IN ('scheduled', 'in_progress')
+        AND m.status IN('scheduled', 'in_progress')
         AND m.scheduled_date >= CURRENT_DATE
         AND m.scheduled_date <= CURRENT_DATE + $2 * INTERVAL '1 day'
       ORDER BY m.scheduled_date ASC, m.priority DESC
-    `, [organizationId, days]);
+      `, [organizationId, days]);
 
     res.json(upcoming.rows);
 
@@ -272,37 +271,37 @@ router.get('/compliance', async (req, res) => {
     const compliance = await db.query(`
       SELECT 
         inspection_status,
-        flow_test_status,
-        COUNT(*) as count
+      flow_test_status,
+      COUNT(*) as count
       FROM hydrant_compliance
       WHERE organization_id = $1
       GROUP BY inspection_status, flow_test_status
-    `, [organizationId]);
+      `, [organizationId]);
 
     // Get hydrants needing attention
     const needsAttention = await db.query(`
       SELECT 
         h.id,
-        h.hydrant_id,
-        h.address,
-        h.last_inspection_date,
-        h.last_flow_test_date,
-        hc.inspection_status,
-        hc.flow_test_status
+      h.hydrant_id,
+      h.address,
+      h.last_inspection_date,
+      h.last_flow_test_date,
+      hc.inspection_status,
+      hc.flow_test_status
       FROM hydrant_compliance hc
       JOIN hydrants h ON hc.id = h.id
       WHERE hc.organization_id = $1
-        AND (hc.inspection_status IN ('overdue', 'never_inspected')
-         OR hc.flow_test_status IN ('overdue', 'never_tested'))
+        AND(hc.inspection_status IN('overdue', 'never_inspected')
+         OR hc.flow_test_status IN('overdue', 'never_tested'))
       ORDER BY 
         CASE 
           WHEN hc.inspection_status = 'never_inspected' THEN 1
           WHEN hc.inspection_status = 'overdue' THEN 2
           ELSE 3
         END,
-        h.last_inspection_date NULLS FIRST
+      h.last_inspection_date NULLS FIRST
       LIMIT 20
-    `, [organizationId]);
+      `, [organizationId]);
 
     res.json({
       summary: compliance.rows,

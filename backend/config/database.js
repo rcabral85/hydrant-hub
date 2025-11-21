@@ -8,17 +8,17 @@ const dbConfig = {
   database: process.env.DB_NAME || 'hydrantdb',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
-  
+
   // Support DATABASE_URL for production deployment
   connectionString: process.env.DATABASE_URL,
-  
+
   // Connection pool settings
   max: 20, // Maximum number of connections
   idleTimeoutMillis: 30000, // How long a client can be idle before being closed
   connectionTimeoutMillis: 10000, // How long to wait when connecting
-  
+
   // SSL configuration for production
-  ssl: process.env.NODE_ENV === 'production' 
+  ssl: process.env.NODE_ENV === 'production'
     ? { rejectUnauthorized: false }
     : false
 };
@@ -28,8 +28,9 @@ const pool = new Pool(dbConfig);
 
 // Handle pool errors
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client:', err);
-  process.exit(-1);
+  console.error('⚠️  Pool error on idle client (non-fatal):', err.message);
+  // Don't exit - let the pool handle reconnection automatically
+  // Supabase pooler often terminates idle connections, this is normal
 });
 
 // Database helper functions

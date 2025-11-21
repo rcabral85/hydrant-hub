@@ -62,6 +62,7 @@ const bulkImportRoutes = require('./routes/bulkImport');
 const dashboardRoutes = require('./routes/dashboard');
 const maintenanceRoutes = require('./routes/maintenance');
 const userRoutes = require('./routes/users'); // From PR #31
+const reportsRoutes = require('./routes/reports');
 
 // Public routes (no authentication required)
 app.use('/api/health', healthRoutes);
@@ -78,6 +79,7 @@ app.use('/api/tests', flowTestRoutes); // Alias for flow-tests
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/users', userRoutes); // From PR #31
+app.use('/api/reports', reportsRoutes);
 
 // ============================================
 // API DOCUMENTATION ENDPOINTS
@@ -101,6 +103,7 @@ app.get('/', (req, res) => {
       dashboard: '/api/dashboard',
       admin: '/api/admin',
       users: '/api/users',
+      reports: '/api/reports',
     },
     documentation: 'https://github.com/rcabral85/hydrant-hub',
   });
@@ -124,6 +127,7 @@ app.get('/api', (req, res) => {
       '/api/dashboard': 'Dashboard statistics and recent activity',
       '/api/admin': 'Administrative functions and user management',
       '/api/users': 'User management and team members',
+      '/api/reports': 'Report generation and analytics',
     },
   });
 });
@@ -226,7 +230,7 @@ app.listen(PORT, async () => {
     const health = await db.healthCheck();
     if (health.status === 'healthy') {
       console.log('✅ Database connected');
-      
+
       // Run migrations if available
       try {
         const migration = require('./scripts/railway-migration');

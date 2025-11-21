@@ -169,10 +169,10 @@ router.post('/refresh', async (req, res, next) => {
     }
 
     const token = authHeader.substring(7);
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-change-this');
-      
+
       const result = await db.query(
         `SELECT u.*, o.name as organization_name, o.type as organization_type
          FROM users u
@@ -187,7 +187,7 @@ router.post('/refresh', async (req, res, next) => {
 
       const user = result.rows[0];
       const newToken = generateToken(user);
-      
+
       const { password_hash, ...userWithoutPassword } = user;
 
       res.json({ success: true, token: newToken, user: userWithoutPassword });
@@ -219,12 +219,12 @@ router.get('/me', async (req, res, next) => {
     }
 
     const token = authHeader.substring(7);
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-change-this');
-      
+
       const result = await db.query(
-        `SELECT u.*, o.name as organization_name, o.type as organization_type, o.contact_email as organization_email
+        `SELECT u.*, o.name as organization_name, o.type as organization_type, o.email as organization_email
          FROM users u
          LEFT JOIN organizations o ON u.organization_id = o.id
          WHERE u.id = $1 AND u.is_active = true`,
@@ -282,7 +282,7 @@ router.put('/profile', async (req, res, next) => {
         'SELECT id FROM users WHERE email = $1 AND id != $2',
         [updates.email, decoded.id]
       );
-      
+
       if (emailCheck.rows.length > 0) {
         return res.status(409).json({ error: 'Email already exists' });
       }

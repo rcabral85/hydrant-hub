@@ -27,14 +27,14 @@ const flowTestSchema = Joi.object({
   hydrant_id: Joi.string().uuid().required(),
   test_date: Joi.date().default(() => new Date()),
   test_time: Joi.string().pattern(/^\d{2}:\d{2}$/).optional(),
-  tested_by_user_id: Joi.string().uuid().optional(),
+  tester_id: Joi.string().uuid().optional(),
   weather_conditions: Joi.string().max(100).optional(),
   temperature_f: Joi.number().integer().min(-20).max(120).optional(),
-  
+
   static_pressure_psi: Joi.number().positive().required(),
   residual_pressure_psi: Joi.number().positive().required(),
   outlets: Joi.array().items(outletSchema).min(1).required(),
-  
+
   test_method: Joi.string().valid('pitot_gauge', 'flow_meter', 'weir').default('pitot_gauge'),
   notes: Joi.string().max(1000).optional()
 });
@@ -52,13 +52,13 @@ router.post('/', async (req, res, next) => {
     }
 
     const testData = value;
-    
+
     // Verify hydrant exists
     const hydrantCheck = await db.query(
       'SELECT id, hydrant_number, organization_id FROM hydrants WHERE id = $1 AND status = $2',
       [testData.hydrant_id, 'active']
     );
-    
+
     if (hydrantCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Hydrant not found or inactive' });
     }
@@ -76,36 +76,27 @@ router.post('/', async (req, res, next) => {
     // Insert flow test record
     const insertQuery = `
       INSERT INTO flow_tests (
-        hydrant_id, test_number, test_date, test_time, tested_by_user_id,
+        organization_id, hydrant_id, test_number, test_date, tester_id,
         weather_conditions, temperature_f, static_pressure_psi, residual_pressure_psi,
-        outlets_data, total_flow_gpm, available_fire_flow_gpm, nfpa_class,
-        test_method, notes, is_valid, validation_notes
+        total_flow_gpm, available_flow_gpm, nfpa_class, notes
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
       ) RETURNING *`;
 
     const insertValues = [
+      hydrantCheck.rows[0].organization_id,
       testData.hydrant_id,
       testNumber,
       testData.test_date,
-      testData.test_time,
-      testData.tested_by_user_id,
-      testData.weather_conditions,
-      testData.temperature_f,
+      testData.tester_id || null,
+      testData.weather_conditions || null,
+      testData.temperature_f || null,
       testData.static_pressure_psi,
       testData.residual_pressure_psi,
-      JSON.stringify(calculationResults.results.outletFlows),
       calculationResults.results.totalFlow,
       calculationResults.results.availableFireFlow,
       calculationResults.results.classification.class,
-      testData.test_method,
-      testData.notes,
-      calculationResults.validation.isValid,
-      JSON.stringify({
-        warnings: calculationResults.validation.warnings,
-        errors: calculationResults.validation.errors,
-        qualityScore: calculationResults.validation.qualityScore
-      })
+      testData.notes || null
     ];
 
     const result = await db.query(insertQuery, insertValues);
@@ -120,11 +111,7 @@ router.post('/', async (req, res, next) => {
     // Return complete results
     res.status(201).json({
       success: true,
-      flowTest: {
-        ...flowTest,
-        outlets_data: ensureParsedJSON(flowTest.outlets_data, []),
-        validation_notes: ensureParsedJSON(flowTest.validation_notes, {})
-      },
+      flowTest: flowTest,
       calculations: calculationResults,
       hydrant: hydrantCheck.rows[0]
     });
@@ -160,7 +147,7 @@ router.get('/', async (req, res, next) => {
       LEFT JOIN users u ON ft.tested_by_user_id = u.id
       WHERE 1=1
     `;
-    
+
     const params = [];
     let paramCount = 0;
 
@@ -191,25 +178,21 @@ router.get('/', async (req, res, next) => {
 
     if (tested_by) {
       params.push(tested_by);
-      query += ` AND ft.tested_by_user_id = $${++paramCount}`;
+      query += ` AND ft.tester_id = $${++paramCount}`;
     }
 
     query += ` ORDER BY ft.test_date DESC, ft.created_at DESC`;
-    
+
     params.push(parseInt(limit));
     query += ` LIMIT $${++paramCount}`;
-    
+
     params.push(parseInt(offset));
     query += ` OFFSET $${++paramCount}`;
 
     const result = await db.query(query, params);
-    
-    // Parse JSON fields for response
-    const flowTests = result.rows.map(row => ({
-      ...row,
-      outlets_data: ensureParsedJSON(row.outlets_data, []),
-      validation_notes: ensureParsedJSON(row.validation_notes, {})
-    }));
+
+    // Return flow tests
+    const flowTests = result.rows;
 
     res.json({
       success: true,
@@ -231,7 +214,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     const result = await db.query(`
       SELECT 
         ft.*, 
@@ -251,14 +234,10 @@ router.get('/:id', async (req, res, next) => {
     }
 
     const flowTest = result.rows[0];
-    
+
     res.json({
       success: true,
-      flowTest: {
-        ...flowTest,
-        outlets_data: ensureParsedJSON(flowTest.outlets_data, []),
-        validation_notes: ensureParsedJSON(flowTest.validation_notes, {})
-      }
+      flowTest: flowTest
     });
 
   } catch (error) {
@@ -305,10 +284,10 @@ router.post('/:id/approve', async (req, res, next) => {
 router.post('/calculator/test', async (req, res, next) => {
   try {
     const { staticPressure, residualPressure, outlets } = req.body;
-    
+
     if (!staticPressure || !residualPressure || !outlets) {
-      return res.status(400).json({ 
-        error: 'staticPressure, residualPressure, and outlets are required' 
+      return res.status(400).json({
+        error: 'staticPressure, residualPressure, and outlets are required'
       });
     }
 

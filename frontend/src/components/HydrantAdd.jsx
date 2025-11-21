@@ -65,11 +65,7 @@ const MapPicker = ({ lat, lng, onLocationSelect, open, onClose }) => {
         </Typography>
         <Box sx={{ height: 400, mb: 2 }}>
           {open && (
-            <MapContainer
-              center={[selectedLat, selectedLng]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-            >
+            <MapContainer center={[selectedLat, selectedLng]} zoom={15} style={{ height: '100%', width: '100%' }}>
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -104,9 +100,7 @@ const MapPicker = ({ lat, lng, onLocationSelect, open, onClose }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleConfirm}>
-          Confirm Location
-        </Button>
+        <Button variant="contained" onClick={handleConfirm}>Confirm Location</Button>
       </DialogActions>
     </Dialog>
   );
@@ -124,7 +118,7 @@ export default function HydrantAdd() {
     manufacturer: '',
     model: '',
     installation_date: null,
-    latitude: 43.5182, // Default to Milton, ON
+    latitude: 43.5182,
     longitude: -79.8774,
     location_address: '',
     location_description: '',
@@ -136,7 +130,6 @@ export default function HydrantAdd() {
   });
 
   useEffect(() => {
-    // Get user's current location if available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -146,7 +139,7 @@ export default function HydrantAdd() {
             longitude: position.coords.longitude
           }));
         },
-        (error) => {},
+        () => { },
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 }
       );
     }
@@ -172,22 +165,14 @@ export default function HydrantAdd() {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    // Only 3 fields are mandatory: hydrant_number, manufacturer, and location_address
     if (!hydrantData.hydrant_number.trim()) {
       newErrors.hydrant_number = 'Hydrant number is required';
     } else if (!/^HYD-\d{3,4}$/.test(hydrantData.hydrant_number.trim())) {
       newErrors.hydrant_number = 'Format must be HYD-001 or HYD-0001';
     }
-    
-    if (!hydrantData.manufacturer) {
-      newErrors.manufacturer = 'Manufacturer is required';
-    }
-    
     if (!hydrantData.location_address.trim()) {
       newErrors.location_address = 'Address is required';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -203,7 +188,6 @@ export default function HydrantAdd() {
         location_address: hydrantData.location_address,
         latitude: hydrantData.latitude,
         longitude: hydrantData.longitude,
-        // Optional fields - only include if provided
         ...(hydrantData.model && { model: hydrantData.model }),
         ...(hydrantData.installation_date && { installation_date: hydrantData.installation_date.format('YYYY-MM-DD') }),
         ...(hydrantData.location_description && { location_description: hydrantData.location_description }),
@@ -215,7 +199,6 @@ export default function HydrantAdd() {
         created_by: 'current_user',
         updated_by: 'current_user'
       };
-      
       const response = await api.post('/hydrants', submitData);
       if (response.data.success) {
         navigate('/map', {
@@ -226,35 +209,24 @@ export default function HydrantAdd() {
         });
       }
     } catch (error) {
-      setSubmitError(
-        error.response?.data?.message ||
-        'Failed to create hydrant. Please check all fields and try again.'
-      );
+      setSubmitError(error.response?.data?.message || 'Failed to create hydrant. Please check all fields and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Reverse geocode coordinates to address with async/await fix
   const reverseGeocode = async (lat, lng) => {
     setLoadingAddress(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'HydrantHub/1.0'
-          }
-        }
-      );
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`, {
+        headers: { 'User-Agent': 'HydrantHub/1.0' }
+      });
       const data = await response.json();
-      
       if (data && data.display_name) {
-        const address = data.display_name;
-        setHydrantData(prev => ({ ...prev, location_address: address }));
+        setHydrantData(prev => ({ ...prev, location_address: data.display_name }));
       }
-    } catch (error) {
-      console.error('Reverse geocoding failed:', error);
+    } catch (e) {
+      console.error('Reverse geocoding failed:', e);
     } finally {
       setLoadingAddress(false);
     }
@@ -262,32 +234,23 @@ export default function HydrantAdd() {
 
   const handleLocationSelect = async (lat, lng) => {
     setHydrantData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-    // Await to ensure address fills immediately
     await reverseGeocode(lat, lng);
   };
 
-  // Generate hydrant number in HYD-### format
   const generateHydrantNumber = async () => {
     try {
-      // Fetch existing hydrants to get the highest number
       const response = await api.get('/hydrants?limit=1000');
       const hydrants = response.data.hydrants || [];
-      
-      // Filter for HYD-### format and extract numbers
       const hydNumbers = hydrants
         .map(h => h.hydrant_number)
         .filter(num => /^HYD-\d+$/.test(num))
         .map(num => parseInt(num.replace('HYD-', '')))
         .filter(num => !isNaN(num));
-      
-      // Get the next number
       const nextNumber = hydNumbers.length > 0 ? Math.max(...hydNumbers) + 1 : 1;
       const suggested = `HYD-${String(nextNumber).padStart(3, '0')}`;
-      
       setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
-    } catch (error) {
-      console.error('Failed to generate hydrant number:', error);
-      // Fallback to random number if API call fails
+    } catch (e) {
+      console.error('Failed to generate hydrant number:', e);
       const randomNum = Math.floor(Math.random() * 999) + 1;
       const suggested = `HYD-${String(randomNum).padStart(3, '0')}`;
       setHydrantData(prev => ({ ...prev, hydrant_number: suggested }));
@@ -305,10 +268,10 @@ export default function HydrantAdd() {
             <Typography variant="body2" color="text.secondary">
               Register a new fire hydrant in the system with location and specifications
             </Typography>
-            <Chip 
-              label="Only Hydrant Number, Manufacturer, and Address are required" 
-              color="info" 
-              size="small" 
+            <Chip
+              label="Only Hydrant Number and Address are required"
+              color="info"
+              size="small"
               sx={{ mt: 1 }}
             />
           </div>
@@ -343,15 +306,12 @@ export default function HydrantAdd() {
                   />
                   <Button variant="outlined" onClick={generateHydrantNumber} sx={{ minWidth: 100 }}>Generate</Button>
                 </Stack>
-                <FormControl fullWidth error={!!errors.manufacturer} required>
-                  <InputLabel>Manufacturer *</InputLabel>
+                <FormControl fullWidth error={!!errors.manufacturer}>
+                  <InputLabel>Manufacturer</InputLabel>
                   <Select
                     value={hydrantData.manufacturer}
-                    onChange={(e) => {
-                      updateField('manufacturer', e.target.value);
-                      updateField('model', '');
-                    }}
-                    label="Manufacturer *"
+                    onChange={(e) => { updateField('manufacturer', e.target.value); updateField('model', ''); }}
+                    label="Manufacturer"
                   >
                     {manufacturers.map(mfg => (<MenuItem key={mfg} value={mfg}>{mfg}</MenuItem>))}
                   </Select>
@@ -405,9 +365,7 @@ export default function HydrantAdd() {
                   required
                   InputProps={{
                     endAdornment: loadingAddress && (
-                      <InputAdornment position="end">
-                        <CircularProgress size={20} />
-                      </InputAdornment>
+                      <InputAdornment position="end"><CircularProgress size={20} /></InputAdornment>
                     )
                   }}
                 />
@@ -428,13 +386,7 @@ export default function HydrantAdd() {
                       step="0.000001"
                       value={hydrantData.latitude}
                       onChange={(e) => updateField('latitude', parseFloat(e.target.value))}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <MyLocation />
-                          </InputAdornment>
-                        )
-                      }}
+                      InputProps={{ startAdornment: (<InputAdornment position="start"><MyLocation /></InputAdornment>) }}
                       fullWidth
                     />
                   </Grid>
@@ -449,12 +401,7 @@ export default function HydrantAdd() {
                     />
                   </Grid>
                 </Grid>
-                <Button
-                  variant="outlined"
-                  startIcon={<MapIcon />}
-                  onClick={() => setShowMapPicker(true)}
-                  fullWidth
-                >
+                <Button variant="outlined" startIcon={<MapIcon />} onClick={() => setShowMapPicker(true)} fullWidth>
                   Pick Location on Map (Auto-fills Address)
                 </Button>
                 <Chip
@@ -481,13 +428,7 @@ export default function HydrantAdd() {
                   value={hydrantData.watermain_size_mm}
                   onChange={(e) => updateField('watermain_size_mm', parseInt(e.target.value))}
                   helperText="Common sizes: 150, 200, 250, 300mm"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Straighten />
-                      </InputAdornment>
-                    )
-                  }}
+                  InputProps={{ startAdornment: (<InputAdornment position="start"><Straighten /></InputAdornment>) }}
                   fullWidth
                 />
                 <FormControl fullWidth>
@@ -510,13 +451,7 @@ export default function HydrantAdd() {
                   value={hydrantData.static_pressure_psi}
                   onChange={(e) => updateField('static_pressure_psi', e.target.value)}
                   helperText="Optional - if known from installation"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Opacity />
-                      </InputAdornment>
-                    )
-                  }}
+                  InputProps={{ startAdornment: (<InputAdornment position="start"><Opacity /></InputAdornment>) }}
                   placeholder="72.5"
                   fullWidth
                 />
@@ -542,7 +477,9 @@ export default function HydrantAdd() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Additional Information (Optional)</Typography>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Additional Information (Optional)
+              </Typography>
               <TextField
                 label="Inspector Notes"
                 value={hydrantData.inspector_notes}

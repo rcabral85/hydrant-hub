@@ -136,7 +136,6 @@ function AppRoutes() {
       
       {/* Maintenance Routes */}
       <Route path="/maintenance" element={<ProtectedRoute requireAdmin={true}><MaintenancePage /></ProtectedRoute>} />
-      </ProtectedRoute>} />
       <Route path="/maintenance/inspect/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
       <Route path="/maintenance/mobile/:hydrantId" element={<ProtectedRoute><MobileInspection /></ProtectedRoute>} />
       
